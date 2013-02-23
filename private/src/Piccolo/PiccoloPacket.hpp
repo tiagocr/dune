@@ -6,8 +6,6 @@
 // Author: Ricardo Martins                                                  *
 // Author: Joao Fortuna                                                     *
 //***************************************************************************
-// $Id:: PiccoloPacket.hpp 12875 2013-02-06 11:24:38Z jfortuna            $:*
-//***************************************************************************
 
 #ifndef PICCOLO_PACKET_HPP_INCLUDED_
 #define PICCOLO_PACKET_HPP_INCLUDED_

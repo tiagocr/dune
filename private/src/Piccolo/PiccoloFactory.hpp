@@ -6,8 +6,6 @@
 // Author: Ricardo Martins                                                  *
 // Author: Joao Fortuna                                                     *
 //***************************************************************************
-// $Id:: PiccoloFactory.hpp 12667 2013-01-22 02:44:42Z rasm               $:*
-//***************************************************************************
 
 #ifndef PICCOLO_FACTORY_HPP_INCLUDED_
 #define PICCOLO_FACTORY_HPP_INCLUDED_

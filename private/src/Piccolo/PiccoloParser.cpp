@@ -6,8 +6,6 @@
 // Author: Ricardo Martins                                                  *
 // Author: Joao Fortuna                                                     *
 //***************************************************************************
-// $Id:: PiccoloParser.cpp 12816 2013-01-31 14:47:43Z jfortuna            $:*
-//***************************************************************************
 
 // Piccolo headers.
 #include "PiccoloParser.hpp"

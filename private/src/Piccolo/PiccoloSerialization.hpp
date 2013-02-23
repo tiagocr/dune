@@ -6,8 +6,6 @@
 // Author: Ricardo Martins                                                  *
 // Author: João Fortuna                                                     *
 //***************************************************************************
-// $Id:: PiccoloSerialization.hpp 12817 2013-01-31 14:52:41Z jfortuna     $:*
-//***************************************************************************
 
 #ifndef PICCOLO_SERIALIZATION_HPP_INCLUDED_
 #define PICCOLO_SERIALIZATION_HPP_INCLUDED_
