@@ -1,0 +1,1093 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<messages creation="03/12/2012" version="2.1.4g"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="Messages.xsd">
+
+  <description>
+    This document describes Piccolo Communications API, version 2.1.4g
+    in regard to the packet format for individual stream packets.
+
+    It *does not* describe the format of the global packet
+    for the stream packet protocol.
+  </description>
+
+  <types>
+    <description>
+      Messages and packets can be viewed as a finite collection of
+      fields. The list of valid field types is presented below.
+      Please note that all fields are serialized in *big endian*
+      byte order (aka "network byte order").
+    </description>
+
+    <type name="int8_t" size="1">
+      <description>
+        8 bit signed integer.
+      </description>
+    </type>
+    <type name="uint8_t" size="1">
+      <description>
+        8 bit unsigned integer.
+      </description>
+    </type>
+    <type name="int16_t" size="2">
+      <description>
+        16 bit signed integer.
+      </description>
+    </type>
+    <type name="uint16_t" size="2">
+      <description>
+        16 bit unsigned integer.
+      </description>
+    </type>
+    <type name="int24_t" size="3">
+      <description>
+        A 24 bit signed integer
+      </description>
+    </type>
+    <type name="uint24_t" size="3">
+      <description>
+        A 24 bit unsigned integer
+      </description>
+    </type>
+    <type name="int32_t" size="4">
+      <description>
+        32 bit signed integer.
+      </description>
+    </type>
+    <type name="uint32_t" size="4">
+      <description>
+        32 bit unsigned integer.
+      </description>
+    </type>
+    <type name="int64_t" size="8">
+      <description>
+        64 bit signed integer.
+      </description>
+    </type>
+    <type name="uint64_t" size="8">
+      <description>
+        64 bit unsigned integer.
+      </description>
+    </type>
+    <type name="fp16_t" size="2">
+      <description>
+        16 bit precision floating point number, as a variation of IEEE 754 format.
+        See Piccolo Communications document, page 23.
+      </description>
+    </type>
+    <type name="fp32_t" size="4">
+      <description>
+        32 bit single precision floating point number in IEEE 754 format.
+      </description>
+    </type>
+    <type name="fp64_t" size="8">
+      <description>
+        64 bit double precision floating point number in IEEE 754 format.
+      </description>
+    </type>
+  </types>
+  <units>
+    <description>
+      The following table lists the units used in the subsequent
+      chapters.
+    </description>
+    <!-- TODO: Try to stick with these as much as possible. We'll
+         then try to make it more uniform.
+         Scales/Factors: for a field scaled eg as "0.2 m/s" type in unit="0.2 m/s"
+    -->
+    <unit abbrev="marcs" name="milli-arcseconds"/>
+    <unit abbrev="rad" name="radians"/>
+    <unit abbrev="mrad" name="milli-radians"/>
+    <unit abbrev="deg C" name="Celsius degrees"/>
+    <unit abbrev="Pa" name="Pascal"/>
+    <unit abbrev="rad/s" name="Radians per second"/>
+    <unit abbrev="m" name="Meter"/>
+    <unit abbrev="cm" name="Centimeter"/>
+    <unit abbrev="m/s" name="Meter per second"/>
+    <unit abbrev="cm/s" name="Centimeter per second"/>
+    <unit abbrev="cm/s2" name="Centimeter per second^2"/>
+    <unit abbrev="rpm" name="Rotations per minute"/>
+    <unit abbrev="kg" name="Kilogram"/>
+    <unit abbrev="s" name="seconds"/>
+    <unit abbrev="ms" name="milli-seconds"/>
+    <unit abbrev="us" name="micro-seconds"/>
+    <unit abbrev="Hz" name="Hertz"/>
+    <unit abbrev="Enumerated" name="Enumeration of integer values"/>
+    <unit abbrev="Bitmask" name="Value bitmask"/>
+  </units>
+
+  <header>
+    <description>
+      <p align="justify">
+        The packet header contains handling information in the form of
+        supplemental fields, it is always placed at the beginning of a
+        packet.
+      </p>
+      <p align="justify">
+        For Piccolo 2.0.1 stream packets this includes the 0xA005
+        synchronization number, plus two unsigned
+        8-bit fields, one for the packet type, another for the packet
+        size.
+      </p>
+    </description>
+    <field name="Synchronization Number" abbrev="sync" type="uint16_t" value="0xA005" fixed="true"/>
+    <field name="Packet Type" abbrev="type" type="uint8_t"/>
+    <field name="Packet Size" abbrev="size" type="uint8_t"/>
+  </header>
+
+  <footer>
+    <description>
+      The packet footer contains validation information in the form of
+      supplemental fields, it is always placed at the end of a
+      packet. For Piccolo 2.0.1 packets the footer contains a CRC-16
+      IBM checksum.
+    </description>
+    <field name="Check Sum (CRC-16-IBM)" abbrev="crc16" type="uint16_t"/>
+  </footer>
+
+  <groups>
+    <group name="Polling Stream" abbrev="POLLING" min="0" max="255"/>
+    <group name="Differential GPS" abbrev="DGPS" min="256" max="512"/>
+    <group name="Pilot In-The-Loop Stream" abbrev="PILOT" min="512" max="767"/>
+    <group name="Autopilot Stream" abbrev="AP" min="768" max="895"/>
+    <group name="Groundstation Stream" abbrev="GS" min="896" max="1023"/>
+    <group name="Gimbal Stream" abbrev="GIMBAL" min="1024" max="1279"/>
+  </groups>
+
+  <!-- Polling stream (0-255) -->
+
+  <!-- DGPS stream (256-511) -->
+  <message id="DGPS(0)" name="Moving Base Station Data" abbrev="MovingBase">
+    <!-- Fortuna -->
+    <field name="GPS Time Of Week" abbrev="gps_tow" unit="ms" type="uint32_t"/>
+    <field name="North Offset" abbrev="north" unit="m" type="fp16_t"/>
+    <field name="East Offset" abbrev="east" unit="m" type="fp16_t"/>
+    <field name="Down Offset" abbrev="down" unit="m" type="fp16_t"/>
+    <field name="Heading" abbrev="head" unit="0.0001 rad" type="uint16_t"/>
+    <field name="Ground Speed North" abbrev="vnorth" unit="cm/s" type="fp16_t"/>
+    <field name="Ground Speed East" abbrev="veast" unit="cm/s" type="fp16_t"/>
+    <field name="Ground Speed Down" abbrev="vdown" unit="cm/s" type="fp16_t"/>
+    <field name="Right Hand" abbrev="rhand" type="int8_t"/>
+  </message>
+
+  <!-- PILOT stream  (512-767) -->
+  <message id="PILOT(0)" name="Pilot Command Angle" abbrev="PilotCommandAngle">
+    <field name="Aileron" abbrev="aileron" type="int16_t" unit="mrad"/>
+    <field name="Elevator" abbrev="elevator" type="int16_t" unit="mrad"/>
+    <field name="Throttle" abbrev="throttle" type="int16_t"/>
+    <field name="Rudder" abbrev="rudder" type="int16_t" unit="mrad"/>
+    <field name="Flap" abbrev="flap" type="int16_t" unit="mrad"/>
+    <field name="Manual" abbrev="manual" type="int8_t"/>
+    <field name="Counter" abbrev="counter" type="int8_t"/>
+    <field name="Brakes" abbrev="brakes" type="int16_t"/>
+    <field name="Parachute" abbrev="parachute" type="int16_t"/>
+    <field name="Ignition" abbrev="ignition" type="int8_t"/>
+  </message>
+
+  <message id="PILOT(1)" name="Pilot Command Pulse" abbrev="PilotCommandPulse">
+    <field name="Aileron" abbrev="aileron" type="uint16_t"/>
+    <field name="Elevator" abbrev="elevator" type="uint16_t"/>
+    <field name="Throttle" abbrev="throttle" type="uint16_t"/>
+    <field name="Rudder" abbrev="rudder" type="uint16_t" />
+    <field name="Flap" abbrev="flap" type="uint16_t" />
+    <field name="Manual" abbrev="manual" type="int8_t"/>
+    <field name="Counter" abbrev="counter" type="int8_t"/>
+    <field name="Brakes" abbrev="brakes" type="uint16_t"/>
+    <field name="Parachute" abbrev="parachute" type="uint16_t"/>
+    <field name="Ignition" abbrev="ignition" type="int8_t"/>
+  </message>
+
+  <!-- AP Stream 768 - 895 -->
+  <message id="AP(0)" name="User warning" abbrev="UserWarning">
+    <!-- Fortuna: done -->
+    <field name="Packet type" abbrev="type" type="int8_t"/>
+    <field name="Warning code" abbrev="code" type="int8_t"/>
+    <!-- TODO: String type not implemented yet
+         <field name="Warning message" abbrev="warning" type="string"/>
+    -->
+  </message>
+
+  <message id="AP(2)" name="Bandwidth mode" abbrev="BandwidthMode">
+    <!-- Eduardo -->
+  </message>
+
+  <message id="AP(3)" name="Feature code" abbrev="FeatureCode">
+    <!-- Fortuna: done -->
+    <field name="Code" abbrev="code" type="uint64_t"/>
+  </message>
+
+  <!-- ON HOLD
+       <message id="AP(5)" name="Actuator Table" abbrev="ActuatorTable">
+       Some serialization aspects are vague, we can
+       handle this later. The packet *seems* to be of no great importance,
+       at least we did not need it so far (as I know - edrdo)
+       </message>
+  -->
+
+  <message id="AP(6)" name="Payload mass" abbrev="PayloadMass">
+    <!-- Fortuna : done
+         Where are the missing bytes? (0-3) Another typo?
+         Bad CCT documentation -->
+    <field name="Mass" abbrev="mass" type="fp32_t" unit="kg"/>
+  </message>
+
+  <message id="AP(7)" name="Elevation data" abbrev="ElevationData">
+    <!-- Fortuna: done -->
+    <field name="Time" abbrev="mass" type="uint32_t" unit="ms"/>
+    <field name="Elevation" abbrev="elev" type="uint16_t" unit="0.25 m"/>
+    <field name="Elevation A" abbrev="elev_a" type="uint16_t" unit="0.25 m"/>
+    <field name="Elevation B" abbrev="elev_b" type="uint16_t" unit="0.25 m"/>
+    <field name="Elevation C" abbrev="elev_c" type="uint16_t" unit="0.25 m"/>
+    <field name="Elevation D" abbrev="elev_d" type="uint16_t" unit="0.25 m"/>
+    <field name="Elevation E" abbrev="elev_e" type="uint16_t" unit="0.25 m"/>
+  </message>
+
+  <message id="AP(8)" name="Waypoint" abbrev="Waypoint">
+    <!-- Fortuna: only a few minor adjustements
+         were required from Piccolo 2.1.0 -->
+    <field name="Latitude" abbrev="lat" type="int32_t" unit="marcs"/>
+    <field name="Longitude" abbrev="lon" type="int32_t" unit="marcs"/>
+    <field name="Flags" abbrev="flags" type="uint8_t" unit="Bitmask" value="0" prefix="WP1">
+      <bitmask id="0x01" abbrev="PRE_TURN" name="Use Pre-Turn Control"/>
+      <bitmask id="0x02" abbrev="LIGHTS" name="Use Lights"/>
+      <bitmask id="0x04" abbrev="SLOPE" name="Use Slope Control"/>
+      <bitmask id="0x08" abbrev="LAND" name="Use As Land Point"/>
+      <bitmask id="0x10" abbrev="CAMERA" name="Use As Camera Target"/>
+      <bitmask id="0x20" abbrev="ORBIT_RIGHT" name="Orbit Right"/>
+      <bitmask id="0x40" abbrev="DROP" name="Deploy Drop"/>
+      <bitmask id="0x80" abbrev="PARACHUTE" name="Deploy Parachute"/>
+    </field>
+    <field name="Orbit Radius" abbrev="radius" type="uint8_t" unit="m" value="0"/>
+    <field name="Altitude" abbrev="altitude" type="int16_t" unit="m"/>
+    <field name="Wind Find" abbrev="windfind" type="uint8_t" value="0"/>
+    <field name="Orbit Time" abbrev="time" type="uint8_t" unit="10s" value="0" max="253"/>
+    <field name="Waypoint Index" abbrev="index" type="uint8_t"/>
+    <field name="Next Waypoint Index" abbrev="next" type="uint8_t"/>
+    <field name="User Defined" abbrev="user" type="uint8_t"/>
+    <field name="Orbit Flags" abbrev="flags2" type="uint8_t" unit="Bitmask" prefix="WP2" value="0">
+      <bitmask id="0x01" abbrev="ALTLSB1" name="AltLSB vel. resolution bit 1"/>
+      <bitmask id="0x02" abbrev="ALTLSB2" name="AltLSB vel. resolution bit 2"/>
+      <bitmask id="0x04" abbrev="ALTLSB3" name="AltLSB vel. resolution bit 3"/>
+      <bitmask id="0x08" abbrev="ORBITM50" name="Orbit radius multiplier is 50 (instead of 10)"/>
+      <bitmask id="0x10" abbrev="AGL" name="Altitude Above Ground Level"/>
+      <bitmask id="0x20" abbrev="HOVER" name="Hover (helicopters only)"/>
+      <bitmask id="0x40" abbrev="BELOW" name="Orbit Below Altitude"/>
+      <bitmask id="0x80" abbrev="ABOVE" name="Orbit Above Altitude"/>
+    </field>
+  </message>
+
+  <message id="AP(9)" name="Waypoint List" abbrev="WaypointList">
+    <!-- Ricardo Martins -->
+  </message>
+
+  <message id="AP(10)" name="Track Command" abbrev="Track">
+    <field name="Target" abbrev="target" type="uint8_t"/>
+    <field name="Goto" abbrev="track_goto" type="uint8_t" value="0"/>
+  </message>
+
+  <message id="AP(11)" name="Minimum throttle" abbrev="MinThrottle">
+    <!-- Fortuna: Done
+         Another case of bad CCT documentation. Same packet is called
+         both MIN_THROTTLE and THROTTLE_MIN in different pages -->
+    <field name="Throttle" abbrev="throttle" type="int16_t" unit="0.001"/>
+  </message>
+
+  <message id="AP(12)" name="Mission Settings" abbrev="MissionSettings">
+    <!-- Fortuna: Done -->
+    <field name="Min Altitude" abbrev="min_altitude" type="int16_t" unit="m"/>
+    <field name="Max Altitude" abbrev="max_altitude" type="int16_t" unit="m"/>
+    <field name="Flight Timeout" abbrev="fl_timeout" type="uint32_t" unit="s"/>
+  </message>
+
+  <message id="AP(14)" name="Sensor Orientation" abbrev="SensorOrientation">
+    <!-- Fortuna: Done -->
+    <field name="Roll" abbrev="roll" unit="rad" type="int32_t"/>
+    <field name="Pitch" abbrev="pitch" unit="rad" type="int32_t"/>
+    <field name="Yaw" abbrev="yaw" unit="rad" type="int32_t"/>
+    <field name="X ant" abbrev="x_ant" unit="m" type="int32_t"/>
+    <field name="Y ant" abbrev="y_ant" unit="m" type="int32_t"/>
+    <field name="Z ant" abbrev="z_ant" unit="m" type="int32_t"/>
+    <!-- TODO
+         Verify if Z is int32 or really int40
+         I think it is a typo on the documentation (another one)
+    -->
+  </message>
+
+  <message id="AP(15)" name="Altimeter Setting" abbrev="AltimeterSetting">
+    <!-- Fortuna: Done -->
+    <field name="Base Pressure" abbrev="base_press" unit="Pa" type="uint32_t"/>
+    <field name="Flags" abbrev="flags" type="uint8_t" unit="Bitmask" value="0" prefix="FLAG">
+      <bitmask id="0x01" abbrev="GPS" name="Use GPS altitude"/>
+      <bitmask id="0x02" abbrev="GPS_DIFF" name="Use GPS altitude if diff corrected"/>
+      <!-- Remaining bits are reserved -->
+    </field>
+  </message>
+
+  <message id="AP(16)" name="System Reset" abbrev="SystemReset">
+    <!-- Eduardo -->
+  </message>
+
+  <message id="AP(17)" name="System Version" abbrev="SystemVersion">
+    <!-- Fortuna: revised -->
+    <field name="Major Version" abbrev="major" type="uint8_t"/>
+    <field name="Minor Version" abbrev="minor" type="uint8_t"/>
+    <field name="Sub Version" abbrev="sub" type="uint8_t"/>
+    <field name="Test Version" abbrev="test" type="uint8_t"/>
+    <field name="Year" abbrev="year" type="uint16_t"/>
+    <field name="Month" abbrev="month" type="uint8_t" min="1" max="12"/>
+    <field name="Day" abbrev="day" type="uint8_t" min="1" max="31"/>
+    <field name="Board Serial Number" abbrev="bserial" type="uint32_t"/>
+    <field name="Features" abbrev="features" type="uint16_t"/>
+    <field name="Board Revision" abbrev="brevision" type="uint16_t"/>
+    <field name="Board Configuration Code" abbrev="bconfig" type="uint16_t"/>
+    <field name="Controller" abbrev="ctrl" type="uint8_t"/>
+    <field name="Controller Version" abbrev="ctrlversion" type="uint8_t"/>
+    <field name="Board Fabrication Year" abbrev="byear" type="uint16_t"/>
+    <field name="Board Fabrication Month" abbrev="bmonth" type="uint8_t" min="1" max="12"/>
+    <field name="Board Fabrication Day" abbrev="bday" type="uint8_t" min="1" max="31"/>
+    <!-- Need a variable size string type for ASCII text -->
+  </message>
+
+  <message id="AP(18)" name="Reset Report" abbrev="ResetReport">
+    <!-- Ricardo Martins -->
+  </message>
+
+  <message id="AP(19)" name="Surface Test" abbrev="SurfaceTest">
+    <!-- Fortuna: Done -->
+    <field name="Angle" abbrev="angle" type="int16_t" unit="mrad"/>
+    <field name="Width" abbrev="width" type="uint16_t" unit="us"/>
+    <field name="Surface Index" abbrev="surface" type="int8_t"/>
+    <field name="Frequency" abbrev="frequency" type="uint8_t" unit="0.1 Hz"/>
+    <field name="Deviation" abbrev="deviation" type="uint16_t" unit="mrad"/>
+  </message>
+
+  <message id="AP(20)" name="Mission Limits" abbrev="MissionLimits">
+    <!-- Fortuna: revised -->
+    <field name="Communications Timeout" abbrev="comm_timeout" type="uint32_t" unit="ms"/>
+    <field name="Pilout Timeout" abbrev="pilot_timeout" type="uint32_t" unit="ms"/>
+    <field name="Lost Communications Waypoint" abbrev="lost_comm_wpt" type="uint8_t"/>
+    <field name="Failure Handling" abbrev="failure" type="uint16_t" prefix="FAILURE" value="0" unit="Bitmask">
+      <bitmask id="0x0001" abbrev="KILL" name="Assertion of flight termination causes the engine to be killed"/>
+      <bitmask id="0x0002" abbrev="DROP_DEADMAN" name="Drop Deadman if Engine Killed"/>
+      <bitmask id="0x0010" abbrev="AIRSPACE" name="Flight termination is asserted when airspace boundary is violated"/>
+      <bitmask id="0x0020" abbrev="TRIGGER_DEADMAN" name="Assertion of flight termination causes the deadman output to be dropped"/>
+      <bitmask id="0x0040" abbrev="AEROD_TERM" name="Assertion of flight termination causes aerodynamic termination"/>
+      <bitmask id="0x0080" abbrev="LAND_TIMMER" name="Flight timer causes automatic landing in lost communications"/>
+      <bitmask id="0x0100" abbrev="COMM" name="Flight termination is asserted when the communications timeouts elapse"/>
+      <bitmask id="0x0200" abbrev="GPS" name="Flight termination is asserted when the GPS timeouts elapse"/>
+      <bitmask id="0x0400" abbrev="GPS_COMM" name="Flight termination is asserted when BOTH the GPS and the communications timeouts elapse"/>
+      <bitmask id="0x0800" abbrev="PARACHUTE" name="Flight termination causes parachute deployment"/>
+    </field>
+    <field name="Autoland Waypoint" abbrev="autoland" type="uint8_t"/>
+    <field name="GPS Timeout" abbrev="gps_timeout" type="uint32_t" unit="ms"/>
+    <field name="Minimum Altitude" abbrev="min_altitude" type="uint16_t" unit="m"/>
+    <field name="Maximum Altitude" abbrev="max_altitude" type="uint16_t" unit="m"/>
+    <field name="Flight Timeout" abbrev="flight_timeout" type="uint32_t" unit="s"/>
+  </message>
+
+  <message id="AP(22)" name="User Action" abbrev="UserAction">
+    <!-- Fortuna: Done -->
+    <field name="Action Index" abbrev="action" type="int8_t"/>
+    <field name="Do" abbrev="do_action" type="int8_t"/>
+  </message>
+
+  <message id="AP(24)" name="Autopilot Loop Command" abbrev="AutopilotLoop">
+    <!-- Eduardo Marques: 1.3.2 / Ricardo Bencatel: Revised for 2.1.4 -->
+    <!-- Note 1: If this packet is being sent repeatedly (by a external computer for example)
+         then set byte 8 to be zero to prevent continuously updating the autopilot EEPROM which
+         could cause problems with the EEPROM lifetime -->
+    <!-- Note 2: The current loop identifier enumeration is for fixed-wing aircraft.
+         If the packet is to be used with rotary-wing aircraft (hlicopters, etc.) the
+         enumeration needs to adapt accordingly -->
+    <field name="Loop Identifier" abbrev="id" type="uint8_t" unit="Enumerated" prefix="LOOP">
+      <enum id="0" abbrev="IAS" name="Indicated Air Speed"/>
+      <enum id="1" abbrev="ALT" name="Altitude"/>
+      <enum id="2" abbrev="BANK" name="Bank"/>
+      <enum id="3" abbrev="FLAP" name="Flaps"/>
+      <enum id="4" abbrev="HEAD" name="Heading"/>
+      <enum id="5" abbrev="VRATE" name="Vertical rate"/>
+      <enum id="6" abbrev="PITCH" name="Pitch"/>
+    </field>
+    <field name="Loop Control" abbrev="control" type="uint8_t" unit="Enumerated" prefix="LOOP_CTRL">
+      <enum id="0" abbrev="OFF" name="Off"/>
+      <enum id="1" abbrev="ON" name="On"/>
+      <enum id="2" abbrev="AUTO" name="Auto"/>
+    </field>
+    <field name="Reserved" abbrev="reserved" type="uint16_t" value="0"/>
+    <field name="Command Value" abbrev="value" type="fp32_t"/>
+    <field name="Updated EEPROM" abbrev="UpdateEEPROM" type="uint8_t" value="0"/>
+  </message>
+
+  <message id="AP(25)" name="Auto-Flare Disable" abbrev="AutoFlareDisable">
+    <!-- Ricardo Bencatel: Done -->
+    <field name="Disable" abbrev="Disable" type="uint8_t" value="0"/>
+    <!-- Set non-zero to disable the automatic flare logic. -->
+    <field name="Supress Warning" abbrev="SupressWarning" type="uint8_t" value="0"/>
+    <!-- Set non-zero to disable the warning response from the
+         autopilot that normally follows this packet. -->
+  </message>
+
+  <message id="AP(26)" name="Description" abbrev="Description">
+    <!-- Who? -->
+  </message>
+
+  <message id="AP(27)" name="User Space" abbrev="UserSpace">
+    <!-- Who? -->
+  </message>
+
+  <message id="AP(28)" name="Manual Flare" abbrev="ManualFlare">
+    <!-- Fortuna -->
+    <!-- No fields for this message. -->
+  </message>
+
+  <message id="AP(30)" name="Magnetic Calibration" abbrev="MagneticCalibration">
+    <!-- Ricardo Bencatel: ToDo -->
+  </message>
+
+  <message id="AP(31)" name="Engine Kill Command" abbrev="EngineKill">
+    <!-- Eduardo: done -->
+    <field name="Kill" abbrev="kill" type="uint8_t"/>
+    <field name="Reserved" abbrev="reserved" type="uint8_t" value="0"/>
+  </message>
+
+  <message id="AP(32)" name="Radio Transmit Disable" abbrev="RadioTransmitDisable">
+    <!-- Fortuna: Done -->
+    <field name="Radio" abbrev="radio" type="uint16_t" prefix="RADIO" unit="Bitmask">
+      <bitmask id="0x0001" abbrev="MHX" name="Disable MHX Radio"/>
+      <!-- All others are reserved -->
+    </field>
+  </message>
+
+  <message id="AP(33)" name="Radio Settings" abbrev="RadioSettings">
+    <!-- Fortuna: revised -->
+    <field name="Channel" abbrev="channel" type="uint8_t" min="0" max="57"/>
+    <field name="Power" abbrev="power" type="uint8_t" unit="10 mW"/>
+    <field name="Speed" abbrev="speed" type="uint8_t" unit="Enumerated" prefix="SPEED">
+      <enum id="0" abbrev="DEFAULT" name="Default"/>
+      <enum id="1" abbrev="NARROW" name="Narrow Band"/>
+      <enum id="2" abbrev="RESERVED" name="Reserved"/>
+      <enum id="3" abbrev="WIDE" name="Wide Band"/>
+    </field>
+    <field name="Radio Type" abbrev="radio" type="uint8_t" unit="Enumerated" prefix="RADIO">
+      <enum id="0" abbrev="MHX_910" name="900 MHz ISM"/>
+      <enum id="1" abbrev="MHX_2400" name="2.4 GHz ISM"/>
+      <enum id="2" abbrev="MHX_920" name="Next Gen. 900 MHz ISM"/>
+      <enum id="3" abbrev="MHX_2420" name="Next Gen. 2.4 GHz ISM"/>
+      <enum id="4" abbrev="MHX_420" name="450 MHz Coherent Frequency"/>
+      <enum id="5" abbrev="MHX_320" name="350 MHz Coherent Frequency"/>
+      <enum id="6" abbrev="MHX_1320" name="1.3 GHz Coherent Frequency"/>
+      <enum id="7" abbrev="EXTEND_900" name="Extend 900 Mhz Maxstream radio"/>
+    </field>
+    <field name="Frequency" abbrev="frequency" type="fp32_t" unit="MHz"/>
+  </message>
+
+  <message id="AP(34)" name="External Serial Setup" abbrev="ExternalSerialSetup">
+    <!-- Who? -->
+  </message>
+
+  <message id="AP(35)" name="External I/O Setup" abbrev="ExternalIOSetup">
+    <!-- Who? -->
+  </message>
+
+  <message id="AP(36)" name="External IO Sample" abbrev="ExternalIOSample">
+    <!-- Eduardo : done -->
+    <field name="Sample 0" abbrev="sample_0" type="uint32_t"/>
+    <field name="Sample 1" abbrev="sample_1" type="uint32_t"/>
+    <field name="Sample 2" abbrev="sample_2" type="uint32_t"/>
+    <field name="Sample 3" abbrev="sample_3" type="uint32_t"/>
+    <field name="Sample 4" abbrev="sample_4" type="uint32_t"/>
+    <field name="Sample 5" abbrev="sample_5" type="uint32_t"/>
+    <field name="Sample 6" abbrev="sample_6" type="uint32_t"/>
+    <field name="Sample 7" abbrev="sample_7" type="uint32_t"/>
+    <field name="Sample 8" abbrev="sample_8" type="uint32_t"/>
+    <field name="Sample 9" abbrev="sample_9" type="uint32_t"/>
+    <field name="Sample 10" abbrev="sample_10" type="uint32_t"/>
+    <field name="Sample 11" abbrev="sample_11" type="uint32_t"/>
+    <field name="Sample 12" abbrev="sample_12" type="uint32_t"/>
+    <field name="Sample 13" abbrev="sample_13" type="uint32_t"/>
+    <field name="Sample 14" abbrev="sample_14" type="uint32_t"/>
+    <field name="Sample 15" abbrev="sample_15" type="uint32_t"/>
+  </message>
+
+  <message id="AP(38)" name="External ADC Sample" abbrev="ExternalADCSample">
+    <!-- Eduardo: done -->
+    <field name="Sample 0" abbrev="sample_0" type="uint32_t"/>
+    <field name="Sample 1" abbrev="sample_1" type="uint32_t"/>
+    <field name="Sample 2" abbrev="sample_2" type="uint32_t"/>
+    <field name="Sample 3" abbrev="sample_3" type="uint32_t"/>
+  </message>
+
+  <message id="AP(39)" name="Land Now Command" abbrev="LandNow">
+    <!-- Eduardo: done -->
+    <!-- Note: the message has no fields -->
+  </message>
+
+  <message id="AP(43)" name="Create Simple Landing" abbrev="CreateSimpleLanding">
+    <!-- Fortuna: done -->
+    <field name="Latitude" abbrev="lat" unit="marcs" type="int32_t"/>
+    <field name="Longitude" abbrev="lon" unit="marcs" type="int32_t"/>
+    <field name="Altitude" abbrev="alt" unit="cm"   type="int32_t"/>
+    <field name="Heading" abbrev="head" unit="0.01 deg" type="int16_t"/>
+    <field name="CCW Direction" abbrev="ccw_direction" type="int8_t"/>
+    <field name="Start Waypoint" abbrev="start" type="int8_t"/>
+  </message>
+
+  <message id="AP(45)" name="Air Data Zero" abbrev="AirDataZero">
+    <!-- Fortuna: done -->
+    <field name="Altitude" abbrev="alt" unit="cm" type="int32_t"/>
+  </message>
+
+  <message id="AP(46)" name="Pre Launch Mode" abbrev="PreLaunchMode">
+    <!-- Eduardo: done -->
+    <!-- Note: the message has no fields -->
+  </message>
+
+  <message id="AP(47)" name="Manual Assist Mode" abbrev="ManualAssistMode">
+    <!-- Fortuna: done -->
+    <field name="Mode" abbrev="mode" type="uint8_t" unit="Enumerated" prefix="MODE">
+      <enum id="0" abbrev="MA_STANDARD" name="No assist"/>
+      <enum id="1" abbrev="MA_LATERAL" name="Aileron stick is used for assist"/>
+      <enum id="2" abbrev="MA_LONGITUDINAL" name="Elevator stick is used for assist"/>
+      <enum id="3" abbrev="MA_ALL" name="All sticks are used for assist"/>
+      <enum id="4" abbrev="GA_SENSOR_NAV" name="Flies based on TASE gimbal orientation"/>
+    </field>
+    <field name="Reserved" abbrev="reserved" type="uint8_t" value="0"/>
+  </message>
+
+  <message id="AP(48)" name="Lights Command" abbrev="Lights">
+    <field name="Enable" abbrev="enable" type="uint8_t"/>
+  </message>
+
+  <message id="AP(49)" name="Brakes Command" abbrev="Brake">
+    <!-- Eduardo: done -->
+    <field name="Brake Actuation" abbrev="value" type="uint16_t" max="1000"/>
+  </message>
+
+  <message id="AP(50)" name="Parachute Command" abbrev="Parachute">
+    <!-- Eduardo: done -->
+    <field name="Enable" abbrev="enable" type="uint8_t"/>
+  </message>
+
+  <message id="AP(51)" name="Drop Command" abbrev="Drop">
+    <!-- Eduardo: done -->
+    <field name="Enable" abbrev="enable" type="uint8_t"/>
+  </message>
+
+  <message id="AP(52)" name="Throttle Trim" abbrev="ThrottleTrim">
+    <!-- Ricardo Bencatel: ToDo -->
+  </message>
+
+  <message id="AP(59)" name="Transponder Control" abbrev="TransponderControl">
+    <!-- Fortuna -->
+    <field name="Squawk code" abbrev="code" type="uint16_t"/>
+    <field name="Mode flags" abbrev="flags" type="uint8_t" unit="Bitmask" value="0" prefix="FLAG">
+      <bitmask id="0x01" abbrev="IDENT" name="Trigger a transponder ident"/>
+      <bitmask id="0x0E" abbrev="RESERVED" name="Reserved"/>
+      <bitmask id="0xF0" abbrev="MODE" name="Transponder mode"/>
+    </field>
+  </message>
+
+  <message id="AP(61)" name="Raw Vibration Data" abbrev="RawVibrationData">
+    <!-- Ricardo Bencatel: ToDo -->
+  </message>
+
+  <message id="AP(62)" name="Vibration Data" abbrev="VibrationData">
+    <!-- Ricardo Bencatel: ToDo -->
+  </message>
+
+  <message id="AP(63)" name="Link Bridge" abbrev="LinkBridge">
+    <!-- Ricardo Bencatel: ToDo -->
+  </message>
+
+  <message id="AP(64)" name="Doublet Command" abbrev="DoubletCommand">
+    <!-- Ricardo Bencatel: Check bitmasks -->
+    <!-- Note: The doublet command disables the longitudinal and/or the lateral
+         mode controllers, to evaluate the aircraft open loop plant dynamics. -->
+    <field name="Flags" abbrev="flags" type="uint8_t" unit="Bitmask" prefix="DATA">
+      <bitmask id="0x80" abbrev="SymmetricDeflection" name="Doublet Deflection Symmetry"/>
+      <bitmask id="0x40" abbrev="DisableAllCtrl" name="Disable all control loops"/>
+      <bitmask id="0x20" abbrev="Reserved" name="Reserved"/>
+      <bitmask id="0x10" abbrev="Reserved" name="Reserved"/>
+      <!--- Check the last bits bitmask
+          <bitmask id="0x00" abbrev="Roll" name="Roll Doublet"/>
+          <bitmask id="0x01" abbrev="Pitch" name="Pitch Doublet"/>
+          <bitmask id="0x02" abbrev="Throttle" name="Throttle Doublet"/>
+          <bitmask id="0x03" abbrev="Rudder" name="Rudder Doublet"/>
+          <bitmask id="0x04" abbrev="Flaps" name="Flaps Doublet"/>
+      -->
+      <bitmask id="0xF0" abbrev="Axis" name="Axis Doublet"/>
+    </field>
+    <field name="Doublet Duration" abbrev="Duration" unit="s" type="uint8_t"/>
+    <field name="Pulse Duration" abbrev="Pulse"  unit="ms" type="uint16_t"/>
+    <!-- How to cope with throttle 0.0001 units and surface deflection in mrads -->
+    <field name="Doublet Center" abbrev="Center"  type="int16_t"/>
+    <!-- How to cope with throttle 0.0001 units and surface deflection in 0.1 mrads -->
+    <field name="Pulse Delta" abbrev="Delta"  type="int16_t"/>
+  </message>
+
+  <message id="AP(65)" name="Doublet AP Data" abbrev="DoubletAPData">
+    <!-- Ricardo Bencatel: Check -->
+    <!-- How to cope with variable packet size (dependent on the number of samples)? -->
+    <!-- How to rebuild the whole set of samples transmitted through different packets? -->
+    <field name="Sample Index" abbrev="SampleIndex" type="uint16_t"/>
+    <!-- Check sample rate variable type -->
+    <field name="Sample Rate" abbrev="SampleRate" unit="Hz" type="uint16_t"/>
+    <field name="Sample Total" abbrev="SampleTotal" type="uint16_t"/>
+    <field name="Left Motor RPM" abbrev="LeftRPM" unit="rpm" type="uint16_t"/>
+    <field name="Right Motor RPM" abbrev="RightRPM" unit="rpm" type="uint16_t"/>
+    <!-- How to cope with 0.1 mrads -->
+    <field name="Roll" abbrev="Roll" type="int16_t"/>
+    <field name="Pitch" abbrev="Pitch" type="int16_t"/>
+    <field name="Yaw" abbrev="Yaw" type="int16_t"/>
+    <field name="Aileron" abbrev="Aileron" type="int16_t"/>
+    <field name="Elevator" abbrev="Elevator" type="int16_t"/>
+    <!-- How to cope with throttle 0.0001 units -->
+    <field name="Throttle" abbrev="Throttle" type="int16_t"/>
+    <field name="Rudder" abbrev="Rudder" type="int16_t"/>
+    <field name="Flaps" abbrev="Flaps" type="int16_t"/>
+  </message>
+
+  <message id="AP(66)" name="Doublet Sensor Data" abbrev="DoubletSensorData">
+    <!-- Ricardo Bencatel: Check -->
+    <!-- How to cope with variable packet size (dependent on the number of samples)? -->
+    <!-- How to rebuild the whole set of samples transmitted through different packets? -->
+    <field name="Sample Index" abbrev="SampleIndex" type="uint16_t"/>
+    <!-- Check sample rate variable type -->
+    <field name="Sample Rate" abbrev="SampleRate" unit="Hz" type="uint16_t"/>
+    <field name="Sample Total" abbrev="SampleTotal" type="uint16_t"/>
+    <!-- How to cope with 300deg /s per 32768 counts -->
+    <field name="Roll Rate" abbrev="RollRate" type="int16_t"/>
+    <field name="Pitch Rate" abbrev="PitchRate" type="int16_t"/>
+    <field name="Yaw Rate" abbrev="YawRate" type="int16_t"/>
+    <field name="Dynamic Pressure" abbrev="DynP" unit="Pa" type="int16_t"/>
+    <!-- How to cope with 2 Pa per counts -->
+    <field name="Static Pressure" abbrev="StatP" type="uint16_t"/>
+    <!-- How to cope with 100m/s² per 32768 counts -->
+    <field name="Acceleration in X axis" abbrev="XAccel" type="int16_t"/>
+    <field name="Acceleration in Y axis" abbrev="YAccel" type="int16_t"/>
+    <field name="Acceleration in Z axis" abbrev="ZAccel" type="int16_t"/>
+    <field name="Analog input A" abbrev="AnalogA" type="uint16_t"/>
+    <field name="Analog input B" abbrev="AnalogB" type="uint16_t"/>
+    <field name="Analog input C" abbrev="AnalogC" type="uint16_t"/>
+    <field name="Analog input D" abbrev="AnalogD" type="uint16_t"/>
+  </message>
+
+  <message id="AP(67)" name="Controller Data Request" abbrev="ControllerDataRequest">
+    <!-- Ricardo Bencatel: Done -->
+    <field name="Controller Id Value" abbrev="CtrlId" type="uint8_t"/>
+    <field name="Controller Version" abbrev="CtrlVers" type="uint8_t"/>
+    <field name="Data Category" abbrev="Category" type="uint8_t"/>
+    <field name="Starting Data Id" abbrev="DataId" type="uint8_t"/>
+    <field name="Number of Data Elements" abbrev="NumData" type="uint8_t"/>
+  </message>
+
+  <message id="AP(68)" name="Controller Data" abbrev="ControllerData">
+    <!-- Ricardo Bencatel: ToDo -->
+    <!-- How to cope with variable packet size (dependent on the number of samples)? -->
+    <field name="Controller Id Value" abbrev="CtrlId" type="uint8_t"/>
+    <field name="Controller Version" abbrev="CtrlVers" type="uint8_t"/>
+    <field name="Data Category" abbrev="Category" type="uint8_t"/>
+    <field name="Starting Data Id" abbrev="DataId" type="uint8_t"/>
+    <field name="Controller Data" abbrev="CtrlData" type="fp32_t"/>
+  </message>
+
+  <message id="AP(69)" name="Telemetry - High Resolution" abbrev="TelemetryHighRes">
+    <!-- Fortuna: in progress (see TODO) -->
+    <field name="Data Flags" abbrev="data_flags" type="uint16_t" unit="Bitmask" prefix="DATA">
+      <bitmask id="0x8000" abbrev="GPS" name="GPS Data"/>
+      <bitmask id="0x4000" abbrev="SENSOR" name="Sensor Data"/>
+      <bitmask id="0x2000" abbrev="RAW_SENSOR" name="Raw Sensor Data"/>
+      <bitmask id="0x1000" abbrev="MAGNETOMER" name="Magnetomer Data"/>
+      <bitmask id="0x0800" abbrev="AGL" name="AGL Data"/>
+      <bitmask id="0x0400" abbrev="FUEL" name="Fuel Data"/>
+      <bitmask id="0x0200" abbrev="LASER" name="AGL Data is Laser"/>
+      <bitmask id="0x0100" abbrev="BARALTUNIT" name="0 cm, 1 dm"/>
+      <bitmask id="0x0080" abbrev="Reserved" name="Reserved 1"/>
+      <bitmask id="0x0040" abbrev="Reserved" name="Reserved 2"/>
+      <bitmask id="0x003F" abbrev="NUM_ACT" name="Number Of Actuators"/>
+    </field>
+    <field name="Limits" abbrev="limits" type="uint16_t" unit="Bitmask" prefix="LIM">
+      <bitmask id="0x8000" abbrev="LOW_ALTITUDE" name="Altitude Too Low"/>
+      <bitmask id="0x4000" abbrev="HIGH_ALTITUDE" name="High Altitude Too High"/>
+      <bitmask id="0x2000" abbrev="LOW_SPEED" name="Speed Too Low"/>
+      <bitmask id="0x1000" abbrev="HIGH_SPEED" name="Speed Too High"/>
+      <bitmask id="0x0800" abbrev="LARGE_ROLL" name="Roll Angle Too Large"/>
+      <bitmask id="0x0400" abbrev="LARGE_PITCH" name="Pitch Angle Too Large"/>
+      <bitmask id="0x0200" abbrev="LOW_RPM" name="Engine RPM Too Low"/>
+      <bitmask id="0x0100" abbrev="HIGH_RPM" name="Engine RPM Too High"/>
+      <bitmask id="0x0080" abbrev="EXC_WIND" name="Excessive Wind"/>
+      <bitmask id="0x0040" abbrev="LOW_AGL" name="AGL Too Low"/>
+      <!-- Remaining bits are reserved -->
+    </field>
+    <field name="Time" abbrev="time"  unit="ms" type="uint32_t"/>
+    <field name="Latitude" abbrev="lat" unit="marcs" type="int32_t"/>
+    <field name="Longitude" abbrev="lon" unit="marcs" type="int32_t"/>
+    <field name="Height" abbrev="height" unit="cm"   type="uint24_t"/>
+    <field name="Reserved" abbrev="reserved" type="uint8_t"/>
+    <field name="Sattelite Status" abbrev="sat_status" type="uint16_t" unit="Bitmask" prefix="GPS">
+      <bitmask id="0xFC00" abbrev="DOP" name="Dilution of precision, in units of 0.2 DOP"/>
+      <bitmask id="0x03E0" abbrev="VISIBLE_SATS" name="Number of visible satellites"/>
+      <bitmask id="0x001F" abbrev="TRACKED_SATS" name="Number of tracked satellites"/>
+    </field>
+    <field name="Ground Speed North" abbrev="vnorth" unit="cm/s" type="int16_t"/>
+    <field name="Ground Speed East" abbrev="veast" unit="cm/s" type="int16_t"/>
+    <field name="Ground Speed Down" abbrev="vdown" unit="cm/s" type="int16_t"/>
+    <field name="GPS Status" abbrev="gps_status" type="uint16_t" unit="Bitmask" prefix="GPS">
+      <bitmask id="0xE000" abbrev="FIX_TYPE" name="3D (=0xE000), 2D (=0xC000), Aquiring (=0x6000)"/>
+    </field>
+    <field name="GPS Week" abbrev="gps_week"  type="uint16_t"/>
+    <field name="GPS Time Of Week" abbrev="gps_tow" unit="ms" type="uint32_t"/>
+    <field name="Roll" abbrev="roll" unit="1/10000 radian" type="int16_t"/>
+    <field name="Pitch" abbrev="pitch" unit="1/10000 radian" type="int16_t"/>
+    <field name="Yaw" abbrev="yaw" unit="1/10000 radian" type="int16_t"/>
+    <field name="Barometric Altitude old" abbrev="altitude_old"  type="int16_t" unit="cm"/>
+    <field name="Wind Speed South"        abbrev="wind_south"  type="int16_t" unit="cm/s"/>
+    <field name="Wind Speed West"         abbrev="wind_west"  type="int16_t" unit="cm/s"/>
+    <field name="Left RPM" abbrev="left_rpm"  type="uint16_t" unit="rpm"/>
+    <field name="Right RPM" abbrev="right_rpm"  type="uint16_t" unit="rpm"/>
+    <field name="Density Ratio" abbrev="density_ratio" type="uint8_t" unit="1/200 ths"/>
+    <field name="Outside Air Temperature" abbrev="oat"  type="int8_t" unit="deg C"/>
+    <field name="Indicated Air Speed (IAS)"    abbrev="ias"  type="uint16_t" unit="cm/s"/>
+    <field name="Static Pressure" abbrev="static_pressure" unit="2 Pa" type="uint16_t"/>
+    <field name="Roll Rate" abbrev="p"  type="int16_t" unit="1/10000 rad/s"/>
+    <field name="Pitch Rate" abbrev="q"  type="int16_t" unit="1/10000 rad/s"/>
+    <field name="Yaw Rate" abbrev="r"  type="int16_t" unit="1/10000 rad/s"/>
+    <field name="X-axis Accelaration" abbrev="x_accel"  type="int16_t" unit="cm/s^2"/>
+    <field name="Y-axis Accelaration" abbrev="y_accel"  type="int16_t" unit="cm/s^2"/>
+    <field name="Z-axis Accelaration" abbrev="z_accel"  type="int16_t" unit="cm/s^2"/>
+    <field name="Magnetic Field X-axis" abbrev="mag_x"  type="int16_t"  unit="0.0001 Gauss"/>
+    <field name="Magnetic Field Y-axis" abbrev="mag_y"  type="int16_t"  unit="0.0001 Gauss"/>
+    <field name="Magnetic Field Z-axis" abbrev="mag_z"  type="int16_t"  unit="0.0001 Gauss"/>
+    <field name="Compass" abbrev="compass"  type="uint16_t" unit="0.0001 radian"/>
+    <field name="Altitude above Ground Level (AGL)" abbrev="agl" type="uint16_t" unit="0.01 m"/>
+    <field name="Actuator 0" abbrev="act0" type="int16_t"/>
+    <field name="Actuator 1" abbrev="act1" type="int16_t"/>
+    <field name="Actuator 2" abbrev="act2" type="int16_t"/>
+    <field name="Actuator 3" abbrev="act3" type="int16_t"/>
+    <field name="Actuator 4" abbrev="act4" type="int16_t"/>
+    <field name="Actuator 5" abbrev="act5" type="int16_t"/>
+    <field name="Actuator 6" abbrev="act6" type="int16_t"/>
+    <field name="Actuator 7" abbrev="act7" type="int16_t"/>
+    <field name="Actuator 8" abbrev="act8" type="int16_t"/>
+    <field name="Actuator 9" abbrev="act9" type="int16_t"/>
+    <field name="Actuator 10" abbrev="act10" type="int16_t"/>
+    <field name="Actuator 11" abbrev="act11" type="int16_t"/>
+    <field name="Actuator 12" abbrev="act12" type="int16_t"/>
+    <field name="Actuator 13" abbrev="act13" type="int16_t"/>
+    <field name="Actuator 14" abbrev="act14" type="int16_t"/>
+    <field name="Actuator 15" abbrev="act15" type="int16_t"/>
+    <!-- TODO: Actually "fuel flow" uses 16-bit floating point format -->
+    <field name="Fuel Flow" abbrev="fuel_flow" type="fp16_t"/>
+    <!-- TODO: Actually "fuel" uses 16-bit floating point format -->
+    <field name="Fuel" abbrev="fuel" type="fp16_t"/>
+    <field name="Weight on Wheel, Ground Contact" abbrev="wow_gc" type="uint8_t"/>
+    <field name="Barometric Altitude" abbrev="altitude" type="uint24_t" unit="cm"/>
+  </message>
+
+  <message id="AP(70)" name="Telemetry - Low Resolution" abbrev="TelemetryLowRes">
+    <!-- Fortuna: in progress (see TODO) -->
+    <field name="Data Flags" abbrev="data_flags" type="uint16_t" unit="Bitmask" prefix="DATA">
+      <bitmask id="0x8000" abbrev="GPS" name="GPS Data"/>
+      <bitmask id="0x4000" abbrev="SENSOR" name="Sensor Data"/>
+      <bitmask id="0x2000" abbrev="RAW_SENSOR" name="Raw Sensor Data"/>
+      <bitmask id="0x1000" abbrev="MAGNETOMER" name="Magnetomer Data"/>
+      <bitmask id="0x0800" abbrev="AGL" name="AGL Data"/>
+      <bitmask id="0x0400" abbrev="FUEL" name="Fuel Data"/>
+      <bitmask id="0x0200" abbrev="LASER" name="AGL Data is Laser"/>
+      <bitmask id="0x0100" abbrev="BARALTUNIT" name="0 cm, 1 dm"/>
+      <bitmask id="0x0080" abbrev="Reserved" name="Reserved 1"/>
+      <bitmask id="0x0040" abbrev="Reserved" name="Reserved 2"/>
+      <bitmask id="0x003F" abbrev="NUM_ACT" name="Number Of Actuators"/>
+    </field>
+    <field name="Limits" abbrev="limits" type="uint16_t" unit="Bitmask" prefix="LIM">
+      <bitmask id="0x8000" abbrev="LOW_ALTITUDE" name="Altitude Too Low"/>
+      <bitmask id="0x4000" abbrev="HIGH_ALTITUDE" name="High Altitude Too High"/>
+      <bitmask id="0x2000" abbrev="LOW_SPEED" name="Speed Too Low"/>
+      <bitmask id="0x1000" abbrev="HIGH_SPEED" name="Speed Too High"/>
+      <bitmask id="0x0800" abbrev="LARGE_ROLL" name="Roll Angle Too Large"/>
+      <bitmask id="0x0400" abbrev="LARGE_PITCH" name="Pitch Angle Too Large"/>
+      <bitmask id="0x0200" abbrev="LOW_RPM" name="Engine RPM Too Low"/>
+      <bitmask id="0x0100" abbrev="HIGH_RPM" name="Engine RPM Too High"/>
+      <bitmask id="0x0080" abbrev="EXC_WIND" name="Excessive Wind"/>
+      <bitmask id="0x0040" abbrev="LOW_AGL" name="AGL Too Low"/>
+      <!-- Remaining bits are reserved -->
+    </field>
+    <field name="Time" abbrev="time"  unit="ms" type="uint24_t"/>
+    <field name="Latitude" abbrev="lat" unit="marcs" type="uint24_t"/>
+    <field name="Longitude" abbrev="lon" unit="marcs" type="uint24_t"/>
+    <field name="Height" abbrev="height" unit="cm"   type="uint16_t"/>
+    <field name="Sattelite Status" abbrev="sat_status" type="uint16_t"/>
+    <field name="Ground Speed North" abbrev="vnorth" unit="m/s" type="int8_t"/>
+    <field name="Ground Speed East" abbrev="veast" unit="m/s" type="int8_t"/>
+    <field name="Ground Speed Down" abbrev="vdown" unit="m/s" type="int8_t"/>
+    <field name="GPS Status" abbrev="gps_status" type="uint16_t"/>
+    <field name="GPS Week" abbrev="gps_week"  type="uint32_t"/>
+    <field name="GPS Time Of Week" abbrev="gps_tow" unit="ms" type="uint16_t"/>
+    <field name="Roll" abbrev="roll" unit="360/256 degree" type="int8_t"/>
+    <field name="Pitch" abbrev="pitch" unit="360/256 degree" type="int8_t"/>
+    <field name="Yaw" abbrev="yaw" unit="360/256 degree" type="int8_t"/>
+    <field name="Barometric Altitude"     abbrev="altitude_old"  type="int8_t" unit="0.5 m"/>
+    <field name="Wind Speed South"        abbrev="wind_south"  type="int8_t" unit="0.5 m"/>
+    <field name="Wind Speed West"         abbrev="wind_west"  type="int8_t" unit="0.5 m"/>
+    <field name="Left RPM" abbrev="left_rpm"  type="uint8_t" unit="50 rpm"/>
+    <field name="Right RPM" abbrev="right_rpm"  type="uint8_t" unit="50 rpm"/>
+    <field name="Density Ratio" abbrev="density_ratio" type="uint8_t" unit="1/200 ths"/>
+    <field name="Outside Air Temperature" abbrev="oat"  type="int8_t" unit="deg C"/>
+    <field name="Indicated Air Speed (IAS)"    abbrev="ias"  type="uint8_t" unit="m/s"/>
+    <field name="Static Pressure" abbrev="static_pressure" unit="2 Pa" type="uint16_t"/>
+    <field name="Roll Rate" abbrev="p"  type="int8_t" unit="2 deg/s"/>
+    <field name="Pitch Rate" abbrev="q"  type="int8_t" unit="2 deg/s"/>
+    <field name="Yaw Rate" abbrev="r"  type="int8_t" unit="2 deg/s"/>
+    <field name="X-axis Accelaration" abbrev="x_accel"  type="int8_t" unit="0.2 m/s^2"/>
+    <field name="Y-axis Accelaration" abbrev="y_accel"  type="int8_t" unit="0.2 m/s^2"/>
+    <field name="Z-axis Accelaration" abbrev="z_accel"  type="int8_t" unit="0.2 m/s^2"/>
+    <field name="Magnetic Field X-axis" abbrev="mag_x"  type="int8_t"  unit="0.01 Gauss"/>
+    <field name="Magnetic Field Y-axis" abbrev="mag_y"  type="int8_t"  unit="0.01 Gauss"/>
+    <field name="Magnetic Field Z-axis" abbrev="mag_z"  type="int8_t"  unit="0.01 Gauss"/>
+    <field name="Compass" abbrev="compass"  type="uint8_t"/>
+    <field name="Altitude above Ground Level (AGL)" abbrev="agl" type="uint8_t" unit="0.1 m"/>
+    <field name="Actuator 0" abbrev="act0" type="int8_t"/>
+    <field name="Actuator 1" abbrev="act1" type="int8_t"/>
+    <field name="Actuator 2" abbrev="act2" type="int8_t"/>
+    <field name="Actuator 3" abbrev="act3" type="int8_t"/>
+    <field name="Actuator 4" abbrev="act4" type="int8_t"/>
+    <field name="Actuator 5" abbrev="act5" type="int8_t"/>
+    <field name="Actuator 6" abbrev="act6" type="int8_t"/>
+    <field name="Actuator 7" abbrev="act7" type="int8_t"/>
+    <field name="Actuator 8" abbrev="act8" type="int8_t"/>
+    <field name="Actuator 9" abbrev="act9" type="int8_t"/>
+    <field name="Actuator 10" abbrev="act10" type="int8_t"/>
+    <field name="Actuator 11" abbrev="act11" type="int8_t"/>
+    <field name="Actuator 12" abbrev="act12" type="int8_t"/>
+    <field name="Actuator 13" abbrev="act13" type="int8_t"/>
+    <field name="Actuator 14" abbrev="act14" type="int8_t"/>
+    <field name="Actuator 15" abbrev="act15" type="int8_t"/>
+    <!-- TODO: Actually "fuel flow" uses 16-bit floating point format -->
+    <field name="Fuel Flow" abbrev="fuel_flow" type="uint16_t"/>
+    <!-- TODO: Actually "fuel" uses 16-bit floating point format -->
+    <field name="Fuel" abbrev="fuel" type="uint16_t"/>
+    <field name="Barometric Altitude" abbrev="altitude" type="uint16_t" unit="0.5 m"/>
+    <field name="Weight on Wheel, Ground Contact" abbrev="wow_gc" type="uint8_t"/>
+  </message>
+
+  <message id="AP(71)" name="System Status - High Resolution" abbrev="SystemStatusHighRes">
+    <!-- Fortuna: Done (What was needed) -->
+    <field name="Main Power" abbrev="power_main" type="uint24_t" unit="Bitmask" prefix="PWR_M">
+      <bitmask id="0x00F0FF" abbrev="CURR" name="Main Current in 1/1000 Amp"/>
+      <bitmask id="0xFF0F00" abbrev="VOLT" name="Main Voltage in 1/100 Volt"/>
+    </field>
+    <field name="Servo Power" abbrev="power_servo" type="uint24_t" unit="Bitmask" prefix="PWR_S">
+      <bitmask id="0x00F0FF" abbrev="CURR" name="Servo Current in 1/1000 Amp"/>
+      <bitmask id="0xFF0F00" abbrev="VOLT" name="Servo Voltage in 1/100 Volt"/>
+    </field>
+    <field name="Bad Voltage" abbrev="voltage_bad" type="uint8_t" unit="Bitmask" prefix="BAD_V">
+      <bitmask id="0x80" abbrev="1ST" name="First stage converter voltage"/>
+      <bitmask id="0x40" abbrev="DIG" name="5.0 digital voltage"/>
+      <bitmask id="0x20" abbrev="ANA" name="5.0 analog voltage"/>
+      <bitmask id="0x10" abbrev="CPU" name="CPU voltage"/>
+      <bitmask id="0x08" abbrev="GPS" name="GPS voltage"/>
+    </field>
+    <field name="Board Temperature" abbrev="temp_board" type="int8_t" unit="deg C"/>
+    <field name="Not implemented" abbrev="reserved1" type="uint64_t" />
+    <field name="Not implemented" abbrev="reserved2" type="uint64_t" />
+    <field name="Not implemented" abbrev="reserved3" type="uint32_t" />
+    <field name="Track Status" abbrev="track_status" type="uint16_t" unit="Bitmask" prefix="TRACK">
+      <bitmask id="0x0080" abbrev="ORB" name="System is orbiting"/>
+      <bitmask id="0xFF7F" abbrev="ETA" name="ETA to waypoint in seconds, if orbit is untimed this value is zero"/>
+    </field>
+    <field name="Not implemented" abbrev="reserved4" type="uint16_t" />
+    <field name="Not implemented" abbrev="reserved5" type="uint64_t" />
+    <field name="Target waypoint" abbrev="waypoint_to" type="uint8_t"/>
+  </message>
+
+  <message id="AP(72)" name="System Status - Low Resolution" abbrev="SystemStatusLowRes">
+    <!-- Fortuna: Not Used in 2.1.4 and later -->
+  </message>
+
+  <message id="AP(73)" name="Launch Now" abbrev="LaunchNow">
+    <!-- Fortuna: ToDo -->
+  </message>
+
+  <message id="AP(74)" name="Controller Data Default" abbrev="ControllerDataDefault">
+    <!-- Ricardo Bencatel: ToDo -->
+  </message>
+
+  <message id="AP(75)" name="Set Fuel Level" abbrev="SetFuelLevel">
+    <!-- Fortuna -->
+    <field name="Is Electric" abbrev="electric" type="int8_t"/>
+    <field name="Reserved 1" abbrev="reserved1" type="int8_t"/>
+    <field name="Reserved 2" abbrev="reserved2" type="int8_t"/>
+    <field name="Reserved 3" abbrev="reserved3" type="int8_t"/>
+    <field name="Fuel Level" abbrev="fuel" type="fp32_t"/>
+  </message>
+
+  <message id="AP(76)" name="Sensor Error" abbrev="SensorError">
+    <!-- Who? -->
+  </message>
+
+  <message id="AP(77)" name="Abort Command" abbrev="Abort">
+    <!-- Ricardo Bencatel -->
+    <!-- No fields for this message. -->
+  </message>
+
+  <message id="AP(78)" name="Moving Baseline Status" abbrev="MovingBaselineStatus">
+    <!-- Who? -->
+  </message>
+
+  <message id="AP(79)" name="Set Fuel if Locked" abbrev="SetFuelIfLocked">
+    <!-- Who? -->
+  </message>
+
+  <!-- GS Stream 896 - 1023 -->
+
+  <message id="GS(0)" name="Add Address" abbrev="AddAddress">
+    <!-- Eduardo: done -->
+    <field name="Address" abbrev="address" type="uint16_t"/>
+  </message>
+
+  <message id="GS(1)" name="Delete Address" abbrev="DelAddress">
+    <!-- Eduardo: done -->
+    <field name="Address" abbrev="address" type="uint16_t"/>
+  </message>
+
+  <message id="GS(2)" name="Pilot Address" abbrev="PilotAddress">
+    <!-- Eduardo: done -->
+    <field name="Address" abbrev="address" type="uint16_t"/>
+  </message>
+
+  <message id="GS(3)" name="DGPS Correction" abbrev="DGPSCorrection">
+    <!-- Fortuna: revised -->
+    <field name="Latitude" abbrev="lat" type="int32_t" unit="marcs"/>
+    <field name="Longitude" abbrev="lon" type="int32_t" unit="marcs"/>
+    <field name="Height" abbrev="height" type="int32_t" unit="cm"/>
+    <field name="Enable" abbrev="enable" type="int8_t"/>
+    <field name="Moving" abbrev="moving" type="int8_t"/>
+    <field name="North Offset" abbrev="north" unit="m" type="fp16_t"/>
+    <field name="East Offset" abbrev="east" unit="m" type="fp16_t"/>
+    <field name="Down Offset" abbrev="down" unit="m" type="fp16_t"/>
+    <field name="Heading" abbrev="head" unit="0.0001 rad" type="uint16_t"/>
+    <field name="Right Hand" abbrev="rhand" type="int8_t"/>
+    <field name="Absolute Heading" abbrev="abs_head" type="int8_t"/>
+  </message>
+
+  <message id="GS(4)" name="Groundstation System Version" abbrev="GSSystemVersion">
+    <!-- Eduardo: done -->
+    <field name="Major Version" abbrev="major" type="uint8_t"/>
+    <field name="Minor Version" abbrev="minor" type="uint8_t"/>
+    <field name="Sub Version" abbrev="sub" type="uint8_t"/>
+    <field name="Released" abbrev="released" type="uint8_t"/>
+    <field name="Year" abbrev="year" type="uint16_t"/>
+    <field name="Month" abbrev="month" type="uint8_t" min="1" max="12"/>
+    <field name="Day" abbrev="day" type="uint8_t" min="1" max="31"/>
+    <field name="Board Serial Number" abbrev="bserial" type="uint32_t"/>
+    <field name="Board Revision" abbrev="brevision" type="uint32_t"/>
+    <field name="Board Configuration Code" abbrev="bconfig" type="uint32_t"/>
+    <field name="Board Fabrication Year" abbrev="byear" type="uint16_t"/>
+    <field name="Board Fabrication Month" abbrev="bmonth" type="uint8_t" min="1" max="12"/>
+    <field name="Board Fabrication Day" abbrev="bday" type="uint8_t" min="1" max="31"/>
+  </message>
+
+  <message id="GS(5)" name="Request Config" abbrev="RequestConfig">
+    <!-- Eduardo: done -->
+    <!-- No fields for this message. -->
+  </message>
+
+  <message id="GS(7)" name="Ground Station Telemetry" abbrev="GroundStationTelemetry">
+    <!-- Fortuna: revised -->
+    <field name="Latitude"                abbrev="lat"        unit="marcs" type="int32_t"/>
+    <field name="Longitude"               abbrev="lon"        unit="marcs" type="int32_t"/>
+    <field name="Height Above WGS84"      abbrev="height"     unit="cm"    type="int32_t"/>
+    <field name="Ground Speed North"      abbrev="vnorth"     unit="cm/s"  type="int16_t"/>
+    <field name="Ground Speed East"       abbrev="veast"      unit="cm/s"  type="int16_t"/>
+    <field name="GPS Tracked Satellites"  abbrev="gps_tracked_sat" type="uint8_t"/>
+    <field name="GPS Visible Sattelites"  abbrev="gps_visible_sat" type="uint8_t"/>
+    <field name="GPS DOP"                 abbrev="gps_dop"    type="uint16_t"/>
+    <field name="GPS Status"              abbrev="gps_status" type="uint16_t"/>
+    <field name="GPS Time - Year"         abbrev="gps_year"   type="uint16_t"/>
+    <field name="GPS Time - Month"        abbrev="gps_month"  type="uint8_t" min="1" max="12"/>
+    <field name="GPS Time - Day"          abbrev="gps_day"    type="uint8_t" min="1" max="31"/>
+    <field name="GPS Time - Hour"         abbrev="gps_hour"   type="uint8_t" max="23"/>
+    <field name="GPS Time - Minutes"      abbrev="gps_min"    type="uint8_t" max="59"/>
+    <field name="GPS Time - Seconds"      abbrev="gps_sec"    type="uint8_t" max="59"/>
+    <field name="GPS Time - Fractional Seconds" abbrev="gps_frac_sec"  type="uint8_t" unit="10 ms"/>
+    <field name="Receive Signal Strength Information" abbrev="rssi"  type="int8_t"/>
+    <field name="Input Voltage" abbrev="input_voltage"  type="uint16_t" unit="mV"/>
+    <field name="Input Current" abbrev="input_current"  type="uint16_t" unit="mA"/>
+    <field name="First Stage Voltage" abbrev="fs_voltage"  type="uint16_t" unit="mV"/>
+    <field name="Digital Rail Voltage" abbrev="dr_voltage"  type="uint16_t" unit="mV"/>
+    <field name="Analog Rail Voltage" abbrev="ar_voltage"  type="uint16_t" unit="mV"/>
+    <field name="CPU Voltage" abbrev="cpu_voltage"  type="uint16_t" unit="mV"/>
+    <field name="GPS Voltage" abbrev="gps_voltage"  type="uint16_t" unit="mV"/>
+    <field name="Board Temperature" abbrev="board_temp"  type="uint16_t" unit="K"/>
+    <field name="MHX VSWR" abbrev="vswr"  type="uint16_t"/>
+    <field name="Reserved" abbrev="reserved" type="int8_t"/>
+    <field name="Static Pressure" abbrev="pressure"  type="uint32_t" unit="Pa"/>
+    <field name="Pilot Sample Percent" abbrev="pilot_sample" type="uint8_t"/>
+    <field name="Pilot Uplink Rate" abbrev="pilot_uplink" type="uint8_t" unit="0.2 Hz"/>
+  </message>
+
+  <!--
+      ON HOLD
+      <message id="264" name="Group Address" abbrev="Group Address">
+      <field name="Number of Addresses" abbrev="num_addr" type="uint8_t"/>
+      <field name="Pilot Index" abbrev="pilot_index" type="uint8_t"/>
+      <field name="Flags" abbrev="flags" type="uint16_t">
+      todo: fill bitmask values
+      </field>
+      <field name="Addresses" abbrev="addresses" type="vector" length-field="num_addr" subtype="uint16_t"/>
+      </message>
+  -->
+
+  <message id="GS(9)" name="Groundstation Radio Settings" abbrev="GSRadioSettings">
+    <!-- Fortuna: revised -->
+    <field name="Channel" abbrev="channel" type="uint8_t" min="0" max="57"/>
+    <field name="Power" abbrev="power" type="uint8_t" unit="10 mW"/>
+    <field name="Speed" abbrev="speed" type="uint8_t" unit="Enumerated" prefix="SPEED">
+      <enum id="0" abbrev="DEFAULT" name="Default"/>
+      <enum id="1" abbrev="NARROW" name="Narrow Band"/>
+      <enum id="2" abbrev="RESERVED" name="Reserved"/>
+      <enum id="3" abbrev="WIDE" name="Wide Band"/>
+    </field>
+    <field name="Radio Type" abbrev="radio" type="uint8_t" unit="Enumerated" prefix="RADIO">
+      <enum id="0" abbrev="MHX_910" name="900 MHz ISM"/>
+      <enum id="1" abbrev="MHX_2400" name="2.4 GHz ISM"/>
+      <enum id="2" abbrev="MHX_920" name="Next Gen. 900 MHz ISM"/>
+      <enum id="3" abbrev="MHX_2420" name="Next Gen. 2.4 GHz ISM"/>
+      <enum id="4" abbrev="MHX_420" name="450 MHz Coherent Frequency"/>
+      <enum id="5" abbrev="MHX_320" name="350 MHz Coherent Frequency"/>
+      <enum id="6" abbrev="MHX_1320" name="1.3 GHz Coherent Frequency"/>
+      <enum id="7" abbrev="EXTEND_900" name="Extend 900 Mhz Maxstream radio"/>
+    </field>
+    <field name="Frequency" abbrev="frequency" type="fp32_t" unit="MHz"/>
+  </message>
+
+  <message id="GS(11)" name="Dynamic Enumeration" abbrev="DynamicEnumeration">
+    <!-- Eduardo: done -->
+    <field name="Enable" abbrev="enable" type="uint8_t"/>
+  </message>
+
+  <message id="GS(13)" name="GS User warning" abbrev="GSUserWarning">
+    <!-- Fortuna: done -->
+    <field name="Packet type" abbrev="type" type="int8_t"/>
+    <field name="Warning code" abbrev="code" type="int8_t"/>
+    <!-- TODO: String type not implemented yet
+         <field name="Warning message" abbrev="warning" type="string"/>
+    -->
+  </message>
+
+  <message id="GS(14)" name="GS Reset Report" abbrev="GSResetReport">
+    <!-- Fortuna -->
+    <field name="Reset status report" abbrev="rsr" type="int16_t"/>
+    <field name="Exception" abbrev="except" type="uint16_t"/>
+    <field name="Program counter" abbrev="pcounter" type="int32_t"/>
+    <field name="Machine state register" abbrev="msreg" type="int32_t"/>
+    <field name="Link register" abbrev="linkreg" type="int32_t"/>
+    <field name="Floating point register" abbrev="fpreg" type="int32_t"/>
+  </message>
+
+  <message id="GS(15)" name="GPS Hot-Start" abbrev="GPSHotStart">
+    <!-- Fortuna: done -->
+    <!-- no fields for this message -->
+  </message>
+</messages>
