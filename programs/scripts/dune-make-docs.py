@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ############################################################################
 # Copyright 2007-2013 Universidade do Porto - Faculdade de Engenharia      #
 # Laboratório de Sistemas e Tecnologia Subaquática (LSTS)                  #
@@ -25,54 +26,52 @@
 # Author: Ricardo Martins                                                  #
 ############################################################################
 
-if(GUI)
-  find_package(Qt4)
-  set(QT_USE_QTXML 1)
-  set(QT_USE_QTUITOOLS 1)
-  set(QT_USE_QTNETWORK 1)
-  include(${QT_USE_FILE})
+import os
+import sys
+import shutil
+import os.path
+import subprocess
+import argparse
+import glob
 
-  if(QT_LIBRARIES)
-    if(DUNE_OS_WINDOWS AND DUNE_CXX_GNU)
-      get_filename_component(DUNE_QT_PATH ${QT_QTGUI_LIBRARY} PATH)
-      set(DUNE_QT_PATH ${DUNE_QT_PATH}/../bin)
-      install(FILES ${DUNE_QT_PATH}/mingwm10.dll
-        ${DUNE_QT_PATH}/QtCore4.dll
-        ${DUNE_QT_PATH}/QtGui4.dll
-        DESTINATION bin)
+# Parse command line arguments.
+parser = argparse.ArgumentParser(
+    description="This script generates DUNE's reference documentation.")
+parser.add_argument('destination', metavar='DESTINATION',
+    help="destination folder")
+args = parser.parse_args()
 
-      set(QT_LIBRARIES ${QT_LIBRARIES} -mwindows)
-    endif(DUNE_OS_WINDOWS AND DUNE_CXX_GNU)
+# Find source folder.
+script = os.path.abspath(__file__).replace('.pyc', '.py')
+wrk_dir = os.path.dirname(script)
+top_dir = os.path.abspath(os.path.join(wrk_dir, '..', '..'))
+src_dir = os.path.abspath(os.path.join(top_dir, 'src'))
 
-    macro(dune_qt4_wrap_ui outfiles)
-      QT4_EXTRACT_OPTIONS(ui_files ui_options ${ARGN})
+# Run CMake to generate a few required headers.
+bld_dir = os.path.abspath(os.path.join(top_dir, 'ref-docs'))
+if os.path.isdir(bld_dir):
+    shutil.rmtree(bld_dir)
+os.makedirs(bld_dir)
+os.chdir(bld_dir)
+subprocess.call(['cmake', '..'])
+subprocess.call(['make', 'doc'])
 
-      foreach(it ${ui_files})
-        DUNE_GET_GENERATED_PATH(outpath ${it})
-        get_filename_component(outfile ${it} NAME_WE)
-        get_filename_component(infile ${it} ABSOLUTE)
+# Find HTML dir.
+htm_dir = glob.glob(os.path.join(bld_dir,
+    'DUNEGeneratedFiles', 'dune-*-docs', 'html'))
 
-        set(outfile ${outpath}/ui_${outfile}.hpp)
-        add_custom_command(OUTPUT ${outfile}
-          COMMAND ${QT_UIC_EXECUTABLE}
-          ARGS ${ui_options} -o ${outfile} ${infile}
-          MAIN_DEPENDENCY ${infile})
-        set(${outfiles} ${${outfiles}} ${outfile})
-      endforeach(it)
-    endmacro(dune_qt4_wrap_ui)
+if len(htm_dir) != 1:
+    print("ERROR: failed to find HTML folder.")
+    sys.exit(1)
+else:
+    htm_dir = htm_dir[0]
 
-    macro(dune_qt4_wrap_cpp outfiles )
-      QT4_EXTRACT_OPTIONS(moc_files moc_options ${ARGN})
+# Copy documentation to destination folder.
+dst_dir = os.path.abspath(args.destination)
+if not os.path.isdir(dst_dir):
+    os.makedirs(dst_dir)
+subprocess.call(['rsync', '-a', '--delete', htm_dir + '/', dst_dir])
 
-      foreach(it ${moc_files})
-        DUNE_GET_GENERATED_PATH(outpath ${it})
-        get_filename_component(outfile ${it} NAME_WE)
-        set(outfile ${outpath}/moc_${outfile}.cpp)
-        get_filename_component(it ${it} ABSOLUTE)
-
-        QT4_CREATE_MOC_COMMAND(${it}  ${outfile} "" "${moc_options}")
-        set(${outfiles} ${${outfiles}} ${outfile})
-      endforeach(it)
-    endmacro(dune_qt4_wrap_cpp)
-  endif(QT_LIBRARIES)
-endif(GUI)
+# Remove CMake files.
+if os.path.isdir(bld_dir):
+    shutil.rmtree(bld_dir)

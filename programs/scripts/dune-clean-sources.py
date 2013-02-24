@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ############################################################################
 # Copyright 2007-2013 Universidade do Porto - Faculdade de Engenharia      #
 # Laboratório de Sistemas e Tecnologia Subaquática (LSTS)                  #
@@ -25,54 +26,56 @@
 # Author: Ricardo Martins                                                  #
 ############################################################################
 
-if(GUI)
-  find_package(Qt4)
-  set(QT_USE_QTXML 1)
-  set(QT_USE_QTUITOOLS 1)
-  set(QT_USE_QTNETWORK 1)
-  include(${QT_USE_FILE})
+import os
+import io
+import sys
+import shutil
+import os.path
+import subprocess
 
-  if(QT_LIBRARIES)
-    if(DUNE_OS_WINDOWS AND DUNE_CXX_GNU)
-      get_filename_component(DUNE_QT_PATH ${QT_QTGUI_LIBRARY} PATH)
-      set(DUNE_QT_PATH ${DUNE_QT_PATH}/../bin)
-      install(FILES ${DUNE_QT_PATH}/mingwm10.dll
-        ${DUNE_QT_PATH}/QtCore4.dll
-        ${DUNE_QT_PATH}/QtGui4.dll
-        DESTINATION bin)
+def clean_whitespace(file):
+    ifd = open(file, 'r')
+    ofd = open(file + '.bak', 'w')
+    for line in ifd:
+        line = line.rstrip().replace('\t', '  ')
+        ofd.write(line + '\n')
+    ifd.close()
+    ofd.close()
+    os.rename(file + '.bak', file)
 
-      set(QT_LIBRARIES ${QT_LIBRARIES} -mwindows)
-    endif(DUNE_OS_WINDOWS AND DUNE_CXX_GNU)
+EXCLUDE = [
+    '.git', 'external', 'etc/xml/IMC.xml'
+]
 
-    macro(dune_qt4_wrap_ui outfiles)
-      QT4_EXTRACT_OPTIONS(ui_files ui_options ${ARGN})
+INCLUDE_EXT = [
+    '.cpp', '.hpp', '.md', '.def', '.py', '.cmake', '.css', '.dox', '.el',
+    '.html', '.in', '.ini', '.js',  '.po', '.pot', '.rc', '.sh', '.tex',
+    '.txt', '.xml', '.xsl'
+]
 
-      foreach(it ${ui_files})
-        DUNE_GET_GENERATED_PATH(outpath ${it})
-        get_filename_component(outfile ${it} NAME_WE)
-        get_filename_component(infile ${it} ABSOLUTE)
+# Find source folder.
+script = os.path.abspath(__file__).replace('.pyc', '.py')
+wrk_dir = os.path.dirname(script)
+top_dir = os.path.abspath(os.path.join(wrk_dir, '..', '..'))
+src_dir = os.path.abspath(os.path.join(top_dir, 'src'))
 
-        set(outfile ${outpath}/ui_${outfile}.hpp)
-        add_custom_command(OUTPUT ${outfile}
-          COMMAND ${QT_UIC_EXECUTABLE}
-          ARGS ${ui_options} -o ${outfile} ${infile}
-          MAIN_DEPENDENCY ${infile})
-        set(${outfiles} ${${outfiles}} ${outfile})
-      endforeach(it)
-    endmacro(dune_qt4_wrap_ui)
+# Find sources.
+files = set()
+for dirname, dirnames, filenames in os.walk(top_dir):
+    for filename in filenames:
+        if os.path.splitext(filename)[1] not in INCLUDE_EXT:
+            continue
 
-    macro(dune_qt4_wrap_cpp outfiles )
-      QT4_EXTRACT_OPTIONS(moc_files moc_options ${ARGN})
+        path = os.path.join(dirname, filename)
+        path = path.replace(top_dir + '/', '')
+        add = True
+        for exc in EXCLUDE:
+            if path.startswith(exc):
+                add = False
+                break
+        if add:
+            files.add(path)
 
-      foreach(it ${moc_files})
-        DUNE_GET_GENERATED_PATH(outpath ${it})
-        get_filename_component(outfile ${it} NAME_WE)
-        set(outfile ${outpath}/moc_${outfile}.cpp)
-        get_filename_component(it ${it} ABSOLUTE)
-
-        QT4_CREATE_MOC_COMMAND(${it}  ${outfile} "" "${moc_options}")
-        set(${outfiles} ${${outfiles}} ${outfile})
-      endforeach(it)
-    endmacro(dune_qt4_wrap_cpp)
-  endif(QT_LIBRARIES)
-endif(GUI)
+for f in files:
+    f = os.path.join(top_dir, f)
+    clean_whitespace(f)
