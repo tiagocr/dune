@@ -292,8 +292,13 @@ namespace Maneuver
         }
         else
         {
-          float diagonal_length = getVerticalError() / std::sin(Angles::radians(15.0));
-          float loiter = diagonal_length / m_maneuver.speed;
+          float diagonal_length = getVerticalError() / std::sin(Plans::c_rated_pitch);
+          float loiter;
+          if (m_estate.u)
+            loiter = diagonal_length / m_estate.u;
+          else
+            loiter = Plans::c_max_eta;
+
           signalProgress(pcs->eta + loiter);
         }
       }
