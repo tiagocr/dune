@@ -13,21 +13,8 @@
 // DUNE headers.
 #include <DUNE/DUNE.hpp>
 
-// Local headers.
-#include "ESCCClock.hpp"
-#include "ESCCBoard.hpp"
-#include "ESCCSetup.hpp"
-
 // Linux headers.
-#include <sys/ioctl.h>
 #include <sys/select.h>
-#include <linux/ioctl.h>
-
-// ESCC Linux driver ioctl's.
-#define ESCC_IOCTL_ADD_BOARD _IOR('k', 5, ESCCBoard)
-#define ESCC_IOCTL_SETUP     _IOW('k', 1, ESCCSetup)
-#define ESCC_IOCTL_SET_CLOCK _IOW('k', 17, ESCCClock)
-#define ESCC_IOCTL_DEL_BOARD _IO('k', 19)
 
 // SAB 82532 Receive Status Register: Valid Frame.
 #define SAB82532_RSTA_VFR    (1 << 7)
@@ -61,10 +48,6 @@ namespace Sensors
     {
       // ESCC - Device.
       std::string escc_dev;
-      // ESCC - Base Address.
-      unsigned escc_adr;
-      // ESCC - IRQ.
-      unsigned escc_irq;
       // Input timeout.
       float input_tout;
       // Power channel name.
@@ -119,14 +102,6 @@ namespace Sensors
         .defaultValue("")
         .description("HG1700 ESCC Device parameter");
 
-        param("ESCC - Base Address", m_args.escc_adr)
-        .defaultValue("")
-        .description("HG1700 ESCC Base Address parameter");
-
-        param("ESCC - IRQ", m_args.escc_irq)
-        .defaultValue("")
-        .description("HG1700 ESCC IRQ parameter");
-
         param("Input Timeout", m_args.input_tout)
         .units(Units::Second)
         .defaultValue("2")
@@ -157,11 +132,7 @@ namespace Sensors
 
       ~Task(void)
       {
-        if (m_fd != -1)
-        {
-          ioctl(m_fd, ESCC_IOCTL_DEL_BOARD, 0);
-          close(m_fd);
-        }
+        onResourceRelease();
       }
 
       void
@@ -170,63 +141,23 @@ namespace Sensors
         m_fd = open(m_args.escc_dev.c_str(), O_RDWR);
         if (m_fd == -1)
           throwLastError(DTR("failed to open ESCC device"));
+      }
 
-        m_wdog.setTop(m_args.input_tout);
+      void
+      onResourceRelease(void)
+      {
+        if (m_fd != -1)
+        {
+          close(m_fd);
+          m_fd = -1;
+        }
       }
 
       void
       onResourceInitialization(void)
       {
-        // Configure board access.
-        ESCCBoard board = {0};
-        board.base = m_args.escc_adr;
-        board.irq = m_args.escc_irq;
-        if (ioctl(m_fd, ESCC_IOCTL_ADD_BOARD, &board) == -1)
-        {
-          // Remove board if it exists.
-          if (errno == EEXIST)
-          {
-            if (ioctl(m_fd, ESCC_IOCTL_DEL_BOARD, 0) == -1)
-              throwLastError(DTR("failed to remove board: "));
-
-            if (ioctl(m_fd, ESCC_IOCTL_ADD_BOARD, &board) == -1)
-              throwLastError(DTR("failed to add board: "));
-          }
-        }
-
-        // Configure clock to 16 MHz.
-        ESCCClock clock = {0};
-        clock.clockbits = 0x5d1460;
-        clock.numbits = 23;
-        if (ioctl(m_fd, ESCC_IOCTL_SET_CLOCK, &clock) == -1)
-          throwLastError(DTR("failed to initialize clock: "));
-
-        // Configure board registers.
-        ESCCSetup setup = {0};
-        setup.mode = 0x88;
-        setup.ccr0 = 0x80;
-        setup.ccr1 = 0x10;
-        setup.ccr2 = 0x38;
-        setup.bgr = 0x07;
-        setup.n_rbufs = 600;
-        setup.n_tbufs = 5;
-        setup.n_rfsize_max = 64;
-        setup.n_tfsize_max = 64;
-        setup.timr = 0x1f;
-        setup.ipc = 0x03;
-        setup.imr0 = 0x44;
-        setup.pim = 0xff;
-        setup.pcr = 0xe0;
-        setup.xad1 = 0xff;
-        setup.xad2 = 0xff;
-        setup.rah1 = 0xff;
-        setup.rah2 = 0xff;
-        setup.ral1 = 0xff;
-        setup.ral2 = 0xff;
-        if (ioctl(m_fd, ESCC_IOCTL_SETUP, &setup) == -1)
-          throwLastError(DTR("failed to setup board: "));
-
         setEntityState(IMC::EntityState::ESTA_NORMAL, Status::CODE_IDLE);
+        m_wdog.setTop(m_args.input_tout);
       }
 
       void
