@@ -28,55 +28,66 @@
 // ISO C++ 98 headers.
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 // DUNE headers.
 #include <DUNE/DUNE.hpp>
+using DUNE_NAMESPACES;
+
+// Local headers.
+#include "Parser.hpp"
 
 int
 main(int argc, char** argv)
 {
-  if (argc != 2)
+  if (argc != 3)
   {
-    std::cerr << "Usage: " << argv[0] << " <device>" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <device> <folder>" << std::endl;
     return 1;
   }
 
-  DUNE::Hardware::SerialPort* port = new DUNE::Hardware::SerialPort(argv[1], 500000);
-  std::ofstream outf;
-  uint8_t bfr[1024];
-  double time;
-  std::string label;
-  std::string dir;
+  double now = Clock::getSinceEpoch();
+  std::string prefix(argv[2]);
+  prefix += "/";
+  prefix += Time::Format::getDateSafe(now);
+  prefix += "_";
+  prefix += Time::Format::getTimeSafe(now);
 
-  label = "datalog_";
-  time = DUNE::Time::Clock::getSinceEpoch();
-  label = label + DUNE::Time::Format::getDateSafe(time) + DUNE::Time::Format::getTimeSafe(time);
-  label = label + ".bin";
-  dir = "/opt/lsts/dune/log/";
-  dir = dir + label;
+  std::string bin_name = prefix + ".bin";
+  std::string tsv_name = prefix + ".tsv";
 
-  std::cerr << dir << std::endl;
-
-  outf.open(dir.c_str(), std::ios::out | std::ios::binary);
-
-  if (outf.fail())
+  FILE* bin = fopen(bin_name.c_str(), "wb");
+  if (bin == NULL)
   {
-    std::cerr << "Unable to open/write log file" << std::endl;
-    return 0;
+    std::cerr << "ERROR: failed to open file '" << bin_name << "'" << std::endl;
+    return 1;
   }
+
+  FILE* tsv = fopen(tsv_name.c_str(), "w");
+  if (tsv == NULL)
+  {
+    std::cerr << "ERROR: failed to open file '" << tsv_name << "'" << std::endl;
+    return 1;
+  }
+
+  std::cerr << "Logging to '" << prefix << ".{bin,tsv}'" << std::endl;
+
+  SerialPort port(argv[1], 500000);
+  uint8_t bfr[1024];
+  ::Parser parser(tsv);
 
   while (1)
   {
-    if (port->hasNewData(1.0) != DUNE::System::IOMultiplexing::PRES_OK)
+    if (port.hasNewData(1.0) != DUNE::System::IOMultiplexing::PRES_OK)
       continue;
 
-    int rv = port->read(bfr, sizeof(bfr));
+    int rv = port.read(bfr, sizeof(bfr));
+    fwrite(bfr, 1, rv, bin);
     for (int i = 0; i < rv; ++i)
     {
-      outf << bfr[i];
+      parser.parse(bfr[i]);
     }
   }
 
-  outf.close();
   return 0;
 }

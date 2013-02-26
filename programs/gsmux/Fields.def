@@ -1,0 +1,57 @@
+//***************************************************************************
+// Copyright 2007-2013 Universidade do Porto - Faculdade de Engenharia      *
+// Laboratório de Sistemas e Tecnologia Subaquática (LSTS)                  *
+//***************************************************************************
+// This file is part of DUNE: Unified Navigation Environment.               *
+//                                                                          *
+// Commercial Licence Usage                                                 *
+// Licencees holding valid commercial DUNE licences may use this file in    *
+// accordance with the commercial licence agreement provided with the       *
+// Software or, alternatively, in accordance with the terms contained in a  *
+// written agreement between you and Universidade do Porto. For licensing   *
+// terms, conditions, and further information contact lsts@fe.up.pt.        *
+//                                                                          *
+// European Union Public Licence - EUPL v.1.1 Usage                         *
+// Alternatively, this file may be used under the terms of the EUPL,        *
+// Version 1.1 only (the "Licence"), appearing in the file LICENCE.md       *
+// included in the packaging of this file. You may not use this work        *
+// except in compliance with the Licence. Unless required by applicable     *
+// law or agreed to in writing, software distributed under the Licence is   *
+// distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF     *
+// ANY KIND, either express or implied. See the Licence for the specific    *
+// language governing permissions and limitations at                        *
+// https://www.lsts.pt/dune/licence.                                        *
+//***************************************************************************
+// Author: Ricardo Martins                                                  *
+//***************************************************************************
+
+FIELD("Nav_Status" , m_nav_status, char*   , "%s")
+FIELD("UTC_Year"   , m_utc_year  , unsigned, "%u")
+FIELD("UTC_Month"  , m_utc_month , unsigned, "%u")
+FIELD("UTC_Day"    , m_utc_day   , unsigned, "%u")
+FIELD("UTC_Hour"   , m_utc_hour  , unsigned, "%u")
+FIELD("UTC_Minute" , m_utc_minute, unsigned, "%u")
+FIELD("UTC_Second" , m_utc_second, double  , "%0.2f")
+FIELD("UTC_WNO"    , m_utc_wno   , unsigned, "%u")
+FIELD("UTC_TOW"    , m_utc_tow   , double  , "%0.2f")
+FIELD("Latitude"   , m_lat       , double  , "%0.8f")
+FIELD("Longitude"  , m_lon       , double  , "%0.8f")
+FIELD("Height"     , m_height    , double  , "%0.4f")
+FIELD("SOG"        , m_sog       , double  , "%0.4f")
+FIELD("COG"        , m_cog       , double  , "%0.4f")
+FIELD("Satellites" , m_sats      , unsigned, "%u")
+FIELD("HDOP"       , m_hdop      , double  , "%0.4f")
+FIELD("VDOP"       , m_vdop      , double  , "%0.4f")
+FIELD("TDOP"       , m_tdop      , double  , "%0.4f")
+FIELD("IMU_Phi"    , m_phi       , float   , "%f")
+FIELD("IMU_Theta"  , m_theta     , float   , "%f")
+FIELD("IMU_Psi"    , m_psi       , float   , "%f")
+FIELD("IMU_Accel_X", m_accel_x   , float   , "%f")
+FIELD("IMU_Accel_Y", m_accel_y   , float   , "%f")
+FIELD("IMU_Accel_Z", m_accel_z   , float   , "%f")
+FIELD("IMU_Agvel_X", m_agvel_x   , float   , "%f")
+FIELD("IMU_Agvel_Y", m_agvel_y   , float   , "%f")
+FIELD("IMU_Agvel_Z", m_agvel_z   , float   , "%f")
+FIELD("IMU_Temp"   , m_temp      , float   , "%f")
+
+#undef FIELD
