@@ -81,6 +81,9 @@ namespace Transports
       void
       onResourceInitialization(void)
       {
+        IMC::AnnounceService announce;
+                announce.service = std::string("imc+any://iridium");
+                dispatch(announce);
         setEntityState(IMC::EntityState::ESTA_NORMAL, Status::CODE_ACTIVE);
       }
 
@@ -108,8 +111,7 @@ namespace Transports
           break;
           case (ID_IRIDIUMCMD):
             irCmd = dynamic_cast<IridiumCommand *>(m);
-          inf("received this command via Iridium: %s.", irCmd->command.c_str());
-          //TODO create resulting TextMessage
+            inf("received this command via Iridium: %s.", irCmd->command.c_str());
 
           break;
           case (ID_DEVICEUPDATE):
