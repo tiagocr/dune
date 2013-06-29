@@ -40,7 +40,7 @@ namespace Transports
       uint8_t * ptr = (uint8_t *) msg->data.data();
       IridiumMessage * ret = NULL;
       uint16_t msg_id;
-      memcpy(&msg_id, ptr, sizeof(msg_id));
+      memcpy(&msg_id, ptr+4, sizeof(msg_id));
 
       switch(msg_id) {
         case (ID_ACTIVATESUB):
@@ -94,7 +94,8 @@ namespace Transports
         msg_id = msg->getId();
       uint8_t * start;
       start = buffer;
-
+      buffer += DUNE::IMC::serialize(source, buffer);
+      buffer += DUNE::IMC::serialize(destination, buffer);
       buffer += DUNE::IMC::serialize(msg_id, buffer);
       buffer = msg->serializeFields(buffer);
 
@@ -105,6 +106,8 @@ namespace Transports
     {
       uint8_t * start;
       start = buffer;
+      buffer += DUNE::IMC::deserialize(source, buffer, length);
+      buffer += DUNE::IMC::deserialize(destination, buffer, length);
       buffer += DUNE::IMC::deserialize(msg_id, buffer, length);
       msg = DUNE::IMC::Factory::produce(msg_id);
       if (msg == NULL)
@@ -127,6 +130,8 @@ namespace Transports
     IridiumCommand::serialize(uint8_t * buffer)
     {
       uint8_t* start = buffer;
+      buffer += DUNE::IMC::serialize(source, buffer);
+      buffer += DUNE::IMC::serialize(destination, buffer);
       buffer += DUNE::IMC::serialize(msg_id, buffer);
       buffer += DUNE::IMC::serialize(command, buffer);
 
@@ -139,6 +144,8 @@ namespace Transports
 
       uint8_t * start;
       start = buffer;
+      buffer += DUNE::IMC::deserialize(source, buffer, length);
+      buffer += DUNE::IMC::deserialize(destination, buffer, length);
       buffer += DUNE::IMC::deserialize(msg_id, buffer, length);
       buffer += DUNE::IMC::deserialize(command, buffer, length);
 
@@ -154,6 +161,8 @@ namespace Transports
     DeviceUpdate::serialize(uint8_t * buffer)
     {
       uint8_t* start = buffer;
+      buffer += DUNE::IMC::serialize(source, buffer);
+      buffer += DUNE::IMC::serialize(destination, buffer);
       buffer += DUNE::IMC::serialize(msg_id, buffer);
 
       std::vector<DevicePosition>::iterator it;
@@ -181,7 +190,10 @@ namespace Transports
       int32_t _lat, _lon;
 
       start = buffer;
+      buffer += DUNE::IMC::deserialize(source, buffer, length);
+      buffer += DUNE::IMC::deserialize(destination, buffer, length);
       buffer += DUNE::IMC::deserialize(msg_id, buffer, length);
+
       while (length >= 14) { // id (2) + time (4) + lat(4) + lon(4)
         DevicePosition pos;
         buffer += DUNE::IMC::deserialize(pos.id, buffer, length);
@@ -209,8 +221,9 @@ namespace Transports
     ActivateSpotSubscription::serialize(uint8_t * buffer)
     {
       uint8_t* start = buffer;
+      buffer += DUNE::IMC::serialize(source, buffer);
+      buffer += DUNE::IMC::serialize(destination, buffer);
       buffer += DUNE::IMC::serialize(msg_id, buffer);
-      buffer += DUNE::IMC::serialize(imc_id, buffer);
 
       return buffer - start;
     }
@@ -219,8 +232,9 @@ namespace Transports
     ActivateSpotSubscription::deserialize(uint8_t * buffer, uint16_t length)
     {
       uint8_t* start = buffer;
+      buffer += DUNE::IMC::deserialize(source, buffer, length);
+      buffer += DUNE::IMC::deserialize(destination, buffer, length);
       buffer += DUNE::IMC::deserialize(msg_id, buffer, length);
-      buffer += DUNE::IMC::deserialize(imc_id, buffer, length);
 
       return buffer - start;
     }
@@ -235,8 +249,9 @@ namespace Transports
     DeactivateSpotSubscription::serialize(uint8_t * buffer)
     {
       uint8_t* start = buffer;
+      buffer += DUNE::IMC::serialize(source, buffer);
+      buffer += DUNE::IMC::serialize(destination, buffer);
       buffer += DUNE::IMC::serialize(msg_id, buffer);
-      buffer += DUNE::IMC::serialize(imc_id, buffer);
 
       return buffer - start;
     }
@@ -245,8 +260,10 @@ namespace Transports
     DeactivateSpotSubscription::deserialize(uint8_t * buffer, uint16_t length)
     {
       uint8_t* start = buffer;
+      buffer += DUNE::IMC::deserialize(source, buffer, length);
+      buffer += DUNE::IMC::deserialize(destination, buffer, length);
       buffer += DUNE::IMC::deserialize(msg_id, buffer, length);
-      buffer += DUNE::IMC::deserialize(imc_id, buffer, length);
+
 
       return buffer - start;
     }

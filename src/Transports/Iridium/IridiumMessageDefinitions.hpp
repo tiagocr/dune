@@ -57,7 +57,11 @@ namespace Transports
     class IridiumMessage
     {
     public:
-      //! The message id (can wither be an IMC id or an Iridium extension
+      //! The source id for this message (IMC id)
+      uint16_t source;
+      //! The destination of this message (IMC id)
+      uint16_t destination;
+      //! The message id (can either be an IMC id or an Iridium extension)
       uint16_t msg_id;
 
       //! Parse a received message received into an Iridium message
