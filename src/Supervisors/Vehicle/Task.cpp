@@ -137,13 +137,9 @@ namespace Supervisors
         m_vs.last_error_time = Clock::getSinceEpoch();
         err("%s", m_vs.last_error.c_str());
 
-        if (!errorMode())
-        {
-          reset();
+        changeMode(IMC::VehicleState::VS_ERROR);
 
-          if (!externalMode() || !nonOverridableLoops())
-            changeMode(IMC::VehicleState::VS_SERVICE);
-        }
+        stopManeuver();
       }
 
       void
@@ -387,7 +383,8 @@ namespace Supervisors
             startManeuver(cmd);
             break;
           case IMC::VehicleCommand::VC_STOP_MANEUVER:
-            stopManeuver(cmd);
+            stopManeuver();
+            requestOK(cmd, DTR("OK"));
             break;
           case IMC::VehicleCommand::VC_START_CALIBRATION:
             startCalibration(cmd);
@@ -499,7 +496,7 @@ namespace Supervisors
       }
 
       void
-      stopManeuver(const IMC::VehicleCommand* cmd)
+      stopManeuver(void)
       {
         if (!errorMode())
         {
@@ -508,8 +505,6 @@ namespace Supervisors
           if (!externalMode() || !nonOverridableLoops())
             changeMode(IMC::VehicleState::VS_SERVICE);
         }
-
-        requestOK(cmd, DTR("OK"));
       }
 
       void
