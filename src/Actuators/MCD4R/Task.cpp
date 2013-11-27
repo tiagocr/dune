@@ -235,14 +235,42 @@ namespace Actuators
     //! Action names for each actuation command
     const std::string c_action_names[] =
     {
-      "Cam Pan", "Cam Tilt", "Cam Zoom", "Cam Focus",
-      "Cam Expo", "Arm Pulse", "Arm Finger", "Laser"
+      "Cam Pan FW", "Cam Pan RV", "Cam Tilt FW", "Cam Tilt RV", "Cam Zoom INC",
+      "Cam Zoom DEC", "Cam Focus FAR", "Cam Focus NEAR", "Cam Focus AUTO", "Cam Expo INC",
+      "Cam Expo DEC", "Arm Pulse", "Arm Finger", "Laser"
     };
     //! Action names for each actuation command
     const std::string c_action_types[] =
     {
-      "Hat", "Hat", "Hat", "Hat",
-      "Hat", "Hat", "Hat", "Button"
+      "Button", "Button", "Button", "Button", "Button",
+      "Button", "Button", "Button", "Button", "Button",
+      "Button", "Hat", "Hat", "Button"
+    };
+    //! Number of actions names or types
+    static const unsigned c_number_actions = 14;
+
+    struct ActionSet
+    {
+      ActionSet(void)
+      {
+        pan = 0;
+        tilt = 0;
+        zoom = 0;
+        focus = 0;
+        expo = 0;
+        arm_pulse = 0;
+        arm_finger = 0;
+        laser = 0;
+      }
+
+      int pan;
+      int tilt;
+      int zoom;
+      int focus;
+      int expo;
+      int arm_pulse;
+      int arm_finger;
+      int laser;
     };
 
     struct Task: public DUNE::Tasks::Task
@@ -519,12 +547,69 @@ namespace Actuators
       {
         Utils::TupleList tuples(msg->actions);
 
-        for (unsigned i = 0; i < ACT_TOTAL; ++i)
+        ActionSet as;
+
+        for (unsigned i = 0; i < c_number_actions; ++i)
         {
           int op = tuples.get(c_action_names[i], 0);
 
-          actCommand((ActuateCommands)i, op);
+          switch (i)
+          {
+            case 0:
+              as.pan += op > 0 ? 1 : 0;
+              break;
+            case 1:
+              as.pan += op > 0 ? -1 : 0;
+              break;
+            case 2:
+              as.tilt += op > 0 ? 1 : 0;
+              break;
+            case 3:
+              as.tilt += op > 0 ? -1 : 0;
+              break;
+            case 4:
+              as.zoom += op > 0 ? 1 : 0;
+              break;
+            case 5:
+              as.zoom += op > 0 ? -1 : 0;
+              break;
+            case 6:
+              as.focus += op > 0 ? 1 : 0;
+              break;
+            case 7:
+              as.focus += op > 0 ? -1 : 0;
+              break;
+            case 8:
+              as.focus = op > 0 ? 127 : 0;
+              break;
+            case 9:
+              as.expo += op > 0 ? 1 : 0;
+              break;
+            case 10:
+              as.expo += op > 0 ? -1 : 0;
+              break;
+            case 11:
+              as.arm_pulse = op;
+              break;
+            case 12:
+              as.arm_finger = op;
+              break;
+            case 13:
+              as.laser = op;
+              break;
+            default:
+              break;
+          }
         }
+
+        cameraPan((PanCommands)as.pan);
+        cameraTilt((TiltCommands)as.tilt);
+        cameraZoom((ZoomCommands)as.zoom);
+        cameraFocus((FocusCommands)as.focus);
+        cameraExposure((ExposureCommands)as.expo);
+        armPulse((PulseCommands)as.arm_pulse);
+        armFinger((FingerCommands)as.arm_finger);
+        actuateLaser((LaserCommands)as.laser);
       }
 
       void
