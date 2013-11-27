@@ -252,16 +252,7 @@ namespace Actuators
     struct ActionSet
     {
       ActionSet(void)
-      {
-        pan = 0;
-        tilt = 0;
-        zoom = 0;
-        focus = 0;
-        expo = 0;
-        arm_pulse = 0;
-        arm_finger = 0;
-        laser = 0;
-      }
+      { };
 
       int pan;
       int tilt;
@@ -272,6 +263,9 @@ namespace Actuators
       int arm_finger;
       int laser;
     };
+
+    //! Empty ActionSet object
+    static const ActionSet c_empty_as;
 
     struct Task: public DUNE::Tasks::Task
     {
@@ -548,6 +542,7 @@ namespace Actuators
         Utils::TupleList tuples(msg->actions);
 
         ActionSet as;
+        as = c_empty_as;
 
         for (unsigned i = 0; i < c_number_actions; ++i)
         {
