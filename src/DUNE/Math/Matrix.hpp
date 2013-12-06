@@ -487,6 +487,12 @@ namespace DUNE
       Matrix
       toDCM(void) const;
 
+      //! Convert from Euler angles to
+      //! Rotation Matrix
+      //! @return DCM matrix
+      Matrix
+      toDCMSMO(void) const;
+
       //! Convert from DCM or Euler angles to Quaternion attitude representation.
       //! @return Quaternion representation
       Matrix
