@@ -145,7 +145,7 @@ namespace
 		Math::Matrix dv_dt_est(6,1,0.0);
 		Math::Matrix J_ant(6,6,0.0);
 		Math::Matrix J(6,6,0.0);
-		Math::Matrix v(6,1,0.0);
+		Math::Matrix vel(6,1,0.0);
 		Math::Matrix dJ(6,6,0.0);
 	
 
@@ -356,21 +356,21 @@ namespace
 
 		//GPSFix
 		void
-      		consume(const IMC::GpsFix* gpsfix)
+      		consume(const IMC::GpsFix* msg)
       		  {
 
-		  gps_accuracy[0]=gpsfix->hacc;
+		  gps_accuracy[0]=msg->hacc;
 
 		  if(flag_initial_point==0){gps_treshold=gps_accuracy[0]+1;}
 		  if(flag_initial_point!=0){gps_treshold=7;}
 
-		  if (gpsfix->validity & IMC::GpsFix::GFV_VALID_POS)
+		  if (msg->validity & IMC::GpsFix::GFV_VALID_POS)
 		  {
 		  if(gps_accuracy[0]<gps_treshold)
 		  {		  
-                  gps_fix[1] = gpsfix->lat;
-         	  gps_fix[2] = gpsfix->lon;
-         	  gps_fix[3] = gpsfix->height;
+                  gps_fix[1] = msg->lat;
+         	  gps_fix[2] = msg->lon;
+         	  gps_fix[3] = msg->height;
 		  flag_valid_pos = 1;	
 		  }
 
@@ -394,7 +394,7 @@ namespace
 
 		  }
 
-		  if (!(gpsfix->validity & IMC::GpsFix::GFV_VALID_POS)/* || (gps_accuracy[0]>=gps_treshold)*/)
+		  if (!(msg->validity & IMC::GpsFix::GFV_VALID_POS)/* || (gps_accuracy[0]>=gps_treshold)*/)
 		  {
 		  flag_valid_pos = 0;
 		  }
@@ -403,12 +403,12 @@ namespace
 
 		//Euler Angles - AHRS
 		void
-      		consume(const IMC::EulerAngles* euler)
+      		consume(const IMC::EulerAngles* msg)
       		  {
 //err("EULER CALLED and %d", flag_initial_orientation);
-                  euler_angles[0] = euler->phi;
-         	  euler_angles[1] = euler->theta;
-		  euler_angles[2] = euler->psi;
+                  euler_angles[0] = msg->phi;
+         	  euler_angles[1] = msg->theta;
+		  euler_angles[2] = msg->psi;
 
 
 	          if(flag_initial_orientation==0)
@@ -425,7 +425,7 @@ namespace
 		 // ea_entity = euler->getSourceEntity();
 
 
- 		  euler_timestamp = euler->getTimeStamp();//p_delta.getDelta();
+ 		  euler_timestamp = msg->getTimeStamp();//p_delta.getDelta();
 
 		  if(euler_timestamp_init == 0)
 		  {
@@ -437,21 +437,21 @@ namespace
 
 		//Linear Velocity - DVL
        		 void
-       		 consume(const IMC::GroundVelocity* vel)
+       		 consume(const IMC::GroundVelocity* msg)
       		  {
 
-		  if (vel->validity & IMC::GroundVelocity::VAL_VEL_X)
+		  if (msg->validity & IMC::GroundVelocity::VAL_VEL_X)
 		  {
-                  velocities[0] = vel->x;	
+                  velocities[0] = msg->x;	
 		  //timestamps[0] = vel->getTimeStamp();//u_delta.getDelta();//vel->getTimestamp();
 		  velocities_ant[0]=velocities[0];
-		  lin_timestamp = vel->getTimeStamp();
+		  lin_timestamp = msg->getTimeStamp();
 		  }
- 		  if (!(vel->validity & IMC::GroundVelocity::VAL_VEL_X))
+ 		  if (!(msg->validity & IMC::GroundVelocity::VAL_VEL_X))
 		  {
                   velocities[0] = velocities_ant[0];
 		  //timestamps[0] = vel->getTimeStamp();
-		  lin_timestamp = vel->getTimeStamp();
+		  lin_timestamp = msg->getTimeStamp();
 		  }
 
 		  if(lin_timestamp_init == 0)
@@ -461,25 +461,25 @@ namespace
 		  }
 
 
-		  if (vel->validity & IMC::GroundVelocity::VAL_VEL_Y)
+		  if (msg->validity & IMC::GroundVelocity::VAL_VEL_Y)
 		  {
-         	  velocities[1] = vel->y;
+         	  velocities[1] = msg->y;
 		  //timestamps[1] = vel->getTimeStamp();//v_delta.getDelta(); //vel->getTimestamp();
 		  velocities_ant[1]=velocities[1];
 		  }
- 		  if (!(vel->validity & IMC::GroundVelocity::VAL_VEL_Y))
+ 		  if (!(msg->validity & IMC::GroundVelocity::VAL_VEL_Y))
 		  {
                   velocities[1] = velocities_ant[1];
 		  }
 
 
-		  if (vel->validity & IMC::GroundVelocity::VAL_VEL_Z)
+		  if (msg->validity & IMC::GroundVelocity::VAL_VEL_Z)
 		  {
-		  velocities[2] = vel->z;
+		  velocities[2] = msg->z;
 		  //timestamps[2] = vel->getTimeStamp();//w_delta.getDelta();//vel->getTimestamp();
 		  velocities_ant[2]=velocities[2];
 		  }
- 		  if (!(vel->validity & IMC::GroundVelocity::VAL_VEL_Z))
+ 		  if (!(msg->validity & IMC::GroundVelocity::VAL_VEL_Z))
 		  {
                   velocities[2] = velocities_ant[2];
 		  }
@@ -489,13 +489,13 @@ namespace
 
 		//Angular Velocity - IMU or AHRS
        		 void
-       		 consume(const IMC::AngularVelocity* angvel)
+       		 consume(const IMC::AngularVelocity* msg)
       		  {
-		  if((flag_imu_active == 1) && (angvel->getSourceEntity() == imu_entity))
+		  if((flag_imu_active == 1) && (msg->getSourceEntity() == imu_entity))
 		  {
-                  velocities[3] = angvel->x;
-         	  velocities[4] = angvel->y;
-		  velocities[5] = angvel->z;
+                  velocities[3] = msg->x;
+         	  velocities[4] = msg->y;
+		  velocities[5] = msg->z;
 
 		  //angvel_timestamp = angvel->getTimeStamp();//p_delta.getDelta();
 
@@ -512,11 +512,11 @@ namespace
 
 		//Water Velocity
 		void
-		consume(const IMC::WaterVelocity* wvel)
+		consume(const IMC::WaterVelocity* msg)
 		{
-		watervelocity[0] = wvel->x;
-         	watervelocity[1] = wvel->y;
-		watervelocity[2] = wvel->z;
+		watervelocity[0] = msg->x;
+         	watervelocity[1] = msg->y;
+		watervelocity[2] = msg->z;
 		watervelocity[3] = 0;
 		watervelocity[4] = 0;
 		watervelocity[5] = 0;
@@ -524,9 +524,9 @@ namespace
 
 		//Depth - Pressure Sensor
 		void
-		consume(const IMC::Depth* dep)
+		consume(const IMC::Depth* msg)
 		{
-		profundity[0] = dep->value;
+		profundity[0] = msg->value;
 		}
 
 		//Servo Positions
@@ -674,13 +674,13 @@ namespace
 
 		 //double u = vel[0];//m_args.velocities[0];
 		 double u = v_estimado[0];
-     		 double vv = v_estimado[1];
+     		 double v = v_estimado[1];
      		 double w = v_estimado[2];
      		 double p = v_estimado[3];
      		 double q = v_estimado[4];
      		 double r = v_estimado[5];
 
-	  	 double CRB_vector[36]={0,0,0,m*(yg*q+zg*r),-m*(xg*q-w),-m*(xg*r+vv),0,0,0,-m*(yg*p+w),m*(zg*r+xg*p),-m*(yg*r-u),0,0,0,-m*(zg*p-vv),-m*(zg*q+u),m*(xg*p+yg*q),-m*(yg*q+zg*r),m*(yg*p+w),m*(zg*p-vv),0,Iyz*q-Ixz*p+Izz*r,Iyz*r+Ixy*p-Iyy*q,m*(xg*q-w),-m*(zg*r+xg*p),m*(zg*q+u),Iyz*q+Ixz*p-Izz*r,0,-Ixz*r-Ixy*q+Ixx*p,m*(xg*r+vv),m*(yg*r-u),-m*(xg*p+yg*q),-Iyz*r-Ixy*p+Iyy*q,Ixz*r+Ixy*q-Ixx*p,0};
+	  	 double CRB_vector[36]={0,0,0,m*(yg*q+zg*r),-m*(xg*q-w),-m*(xg*r+v),0,0,0,-m*(yg*p+w),m*(zg*r+xg*p),-m*(yg*r-u),0,0,0,-m*(zg*p-v),-m*(zg*q+u),m*(xg*p+yg*q),-m*(yg*q+zg*r),m*(yg*p+w),m*(zg*p-v),0,Iyz*q-Ixz*p+Izz*r,Iyz*r+Ixy*p-Iyy*q,m*(xg*q-w),-m*(zg*r+xg*p),m*(zg*q+u),Iyz*q+Ixz*p-Izz*r,0,-Ixz*r-Ixy*q+Ixx*p,m*(xg*r+v),m*(yg*r-u),-m*(xg*p+yg*q),-Iyz*r-Ixy*p+Iyy*q,Ixz*r+Ixy*q-Ixx*p,0};
 
 		return (Matrix(CRB_vector, 6, 6) );
 	  }
@@ -946,11 +946,11 @@ namespace
 
 		// Calculate Rotation Matrix	
 		J=ComputeJ();
-		v=Computev();
+		vel=Computev();
 
 
 		// Calculate nu_dot
-		nu_dot=J*v;
+		nu_dot=J*vel;
 
 		// Integrate velocity in Earth-fixed Frame to obtain position	
 		double delta_lin = lin_timestamp - lin_timestamp_ant;
@@ -973,7 +973,7 @@ namespace
 		euler_timestamp_ant = euler_timestamp;
 		
 
-		double teste[12] = {nu(0, 0), nu(1, 0), nu(2, 0), nu(3, 0), nu(4, 0), nu(5, 0), v(0,0), v(1,0), v(2,0), v(3,0), v(4,0), v(5,0)};
+		double teste[12] = {nu(0, 0), nu(1, 0), nu(2, 0), nu(3, 0), nu(4, 0), nu(5, 0), vel(0,0), vel(1,0), vel(2,0), vel(3,0), vel(4,0), vel(5,0)};
 		m_tau.x = teste[0];
 		m_tau.y = teste[1];
 		m_tau.z = teste[2];
