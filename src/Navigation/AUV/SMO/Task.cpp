@@ -68,83 +68,6 @@ namespace
         static const int W=176;
         static const int B=177;
 
-        int flag_init_nu_est=0;
-
-        double x=0;
-        double y=0;
-        double z=0;
-        double range=0;
-        double bearing=0;
-
-        int flag_initial_point=0;
-        int flag_initial_orientation=0;
-
-        double gps_fix[4];
-        double gps_initial_point[4];
-
-        double gps_accuracy[2];
-        double gps_treshold;
-
-        double euler_angles[3];
-        double euler_angles_est[3];
-
-        double velocities[7];
-        double velocities_ant[7]={0,0,0,0,0,0,0};
-
-        double profundity[2];
-        double servo_pos[4];
-
-        double thruster;
-        double er[2];
-
-        double vel_int_delta;
-        double smo_delta;
-        double smo_delta1;
-
-        double est_unc;
-        double j_delta;
-
-        int flag_valid_pos=0;
-
-        // Entity ID
-        int imu_entity;
-        int ahrs_entity;
-
-        int flag_imu_active=0;
-        int flag_ahrs_active=0;
-
-        int error_counter=0;
-
-        // Resolve Entity string
-        //std::vector<std::string> servo_entities;
-        std::string imu_entities;
-        std::string ahrs_entities;
-
-
-        // Sliding Mode Observer Matrices
-        Math::Matrix nu_dot(6,1,0.0);
-        Math::Matrix nu_dot_ant(6,1,0.0);
-        Math::Matrix nu_dot_est(6,1,0.0);
-        Math::Matrix nu_dot_est_ant(6,1,0.0);
-        Math::Matrix dn_est(6,1,0.0);
-        Math::Matrix nu(6,1,0.0);
-        Math::Matrix nu_ant(6,1,0.0);
-        Math::Matrix nu_est(6,1,0.0);
-        Math::Matrix nu_error(6,1,0.0);
-        Math::Matrix tau(6,1,0.0);
-        Math::Matrix v_est(6, 1, 0.0);
-        Math::Matrix dv_dt_est(6,1,0.0);
-        Math::Matrix J_ant(6,6,0.0);
-        Math::Matrix J(6,6,0.0);
-        Math::Matrix vel(6,1,0.0);
-        Math::Matrix dJ(6,6,0.0);
-
-        // Uncertainty Matrices
-        Math::Matrix nu_uncertainty(6,1,0.0);
-        Math::Matrix nu_dot_uncertainty(6,1,0.0);
-        Math::Matrix v_est_uncertainty(6,1,0.0);
-
-
         struct Arguments
         {
           //Sliding Matrix Gains
@@ -152,37 +75,80 @@ namespace
           float k2[6];
           float alfa1[6];
           float alfa2[6];
-
           int roll_estimation_on_off;
-
         };
 
-        /* struct Task: public DUNE::Tasks::Task
-           {*/
         struct Task: public DUNE::Tasks::Periodic
         {
-
-          //! Constructor.
-          //! @param[in] name task name.
-          //! @param[in] ctx context.
-
+          int flag_init_nu_est;
+          double x;
+          double y;
+          double z;
+          double range;
+          double bearing;
+          int flag_initial_point;
+          int flag_initial_orientation;
+          double gps_fix[4];
+          double gps_initial_point[4];
+          double gps_accuracy[2];
+          double gps_treshold;
+          double euler_angles[3];
+          double euler_angles_est[3];
+          double velocities[7];
+          double velocities_ant[7];
+          double profundity[2];
+          double servo_pos[4];
+          double thruster;
+          double er[2];
+          double vel_int_delta;
+          double smo_delta;
+          double smo_delta1;
+          double est_unc;
+          double j_delta;
+          int flag_valid_pos;
+          // Entity ID
+          int imu_entity;
+          int ahrs_entity;
+          int flag_imu_active;
+          int flag_ahrs_active;
+          int error_counter;
+          // Resolve Entity string
+          //std::vector<std::string> servo_entities;
+          std::string imu_entities;
+          std::string ahrs_entities;
+          // Sliding Mode Observer Matrices
+          Math::Matrix nu_dot;
+          Math::Matrix nu_dot_ant;
+          Math::Matrix nu_dot_est;
+          Math::Matrix nu_dot_est_ant;
+          Math::Matrix dn_est;
+          Math::Matrix nu;
+          Math::Matrix nu_ant;
+          Math::Matrix nu_est;
+          Math::Matrix nu_error;
+          Math::Matrix tau;
+          Math::Matrix v_est;
+          Math::Matrix dv_dt_est;
+          Math::Matrix J_ant;
+          Math::Matrix J;
+          Math::Matrix vel;
+          Math::Matrix dJ;
+          // Uncertainty Matrices
+          Math::Matrix nu_uncertainty;
+          Math::Matrix nu_dot_uncertainty;
+          Math::Matrix v_est_uncertainty;
           //! Use NavigationUnvertainty messages to send tau to test
           IMC::EstimatedState m_est;
           IMC::NavigationUncertainty m_uncertainty;
-
           //! Time window between values.
           DUNE::Time::Delta vel_delta;
           DUNE::Time::Delta dj_delta;
           DUNE::Time::Delta est_delta;
           DUNE::Time::Delta est_delta1;
           DUNE::Time::Delta est_uncertainty;
-
           Arguments m_args;
           Derivative<double> deriv;
 
-          /*  Task(const std::string& name, Tasks::Context& ctx):
-              DUNE::Tasks::Task(name, ctx)
-              {*/
           Task(const std::string& name, Tasks::Context& ctx):
             Periodic(name, ctx)
           {
@@ -294,6 +260,39 @@ namespace
             .defaultValue("0.2")
             .description("Luenberger term");
 
+            flag_init_nu_est=0;
+            x=0;
+            y=0;
+            z=0;
+            range=0;
+            bearing=0;
+            flag_initial_point=0;
+            flag_initial_orientation=0;
+            std::memset(&velocities_ant, 0, sizeof(velocities_ant));
+            flag_valid_pos=0;
+            flag_imu_active=0;
+            flag_ahrs_active=0;
+            error_counter=0;
+            nu_dot.resizeAndFill(6,1,0.0);
+            nu_dot_ant.resizeAndFill(6,1,0.0);
+            nu_dot_est.resizeAndFill(6,1,0.0);
+            nu_dot_est_ant.resizeAndFill(6,1,0.0);
+            dn_est.resizeAndFill(6,1,0.0);
+            nu.resizeAndFill(6,1,0.0);
+            nu_ant.resizeAndFill(6,1,0.0);
+            nu_est.resizeAndFill(6,1,0.0);
+            nu_error.resizeAndFill(6,1,0.0);
+            tau.resizeAndFill(6,1,0.0);
+            v_est.resizeAndFill(6, 1, 0.0);
+            dv_dt_est.resizeAndFill(6,1,0.0);
+            J_ant.resizeAndFill(6,6,0.0);
+            J.resizeAndFill(6,6,0.0);
+            vel.resizeAndFill(6,1,0.0);
+            dJ.resizeAndFill(6,6,0.0);
+            // Uncertainty Matrices
+            nu_uncertainty.resizeAndFill(6,1,0.0);
+            nu_dot_uncertainty.resizeAndFill(6,1,0.0);
+            v_est_uncertainty.resizeAndFill(6,1,0.0);
 
             //Register Consumers
             bind<IMC::EulerAngles>(this);
