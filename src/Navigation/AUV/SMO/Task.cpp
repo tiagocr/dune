@@ -27,7 +27,8 @@
 
 // DUNE headers.
 #include <DUNE/DUNE.hpp>
-
+#include "model.hpp"
+#include "gain_matrices.hpp"
 
 namespace 
 {
@@ -44,7 +45,6 @@ namespace
 		static const int yg=0;
 		static const float zG = 0.01;
 		static const float zg=0.01;
-
 
 		static const float Ixx = 0.04;
 		static const float Iyy = 2.1;
@@ -91,38 +91,29 @@ namespace
 		double velocities[7];
 		double velocities_ant[7]={0,0,0,0,0,0,0};
 
-		double watervelocity[6];
 		double profundity[2];
 		double servo_pos[4];
 
 		double thruster;
 		double er[2];
 
-		//double timestamps[6];
-		double lin_timestamp;
-		double lin_timestamp_ant;
+		double vel_int_delta;
+		double smo_delta;
+		double smo_delta1;
 
-		int lin_timestamp_init=0;
-		double angvel_timestamp;
-		double angvel_timestamp_ant;
-		double euler_timestamp;
-		double euler_timestamp_ant;
+		double est_unc;
+		double j_delta;
 
-		int euler_timestamp_init=0;
-		int angvel_timestamp_init=0;
 		int flag_valid_pos=0;
 
 		// Entity ID
 		int imu_entity;
 		int ahrs_entity;
-		//int temp_entities;
-
-		// Get entity from reading
-		//int angvel_entity=0;
-		//int ea_entity=0;
 
 		int flag_imu_active=0;
 		int flag_ahrs_active=0;
+
+		int error_counter=0;
 
 		// Resolve Entity string
 		//std::vector<std::string> servo_entities;
@@ -147,20 +138,29 @@ namespace
 		Math::Matrix J(6,6,0.0);
 		Math::Matrix vel(6,1,0.0);
 		Math::Matrix dJ(6,6,0.0);
+
+		// Uncertainty Matrices
+		Math::Matrix nu_uncertainty(6,1,0.0);
+		Math::Matrix nu_dot_uncertainty(6,1,0.0);
+		Math::Matrix v_est_uncertainty(6,1,0.0);
 	
 
 	struct Arguments
     	{	
 		//Sliding Matrix Gains
-		double k1[6];
-		double k2[6];
-		double alfa1[6];
-		double alfa2[6];
+		float k1[6];
+		float k2[6];
+		float alfa1[6];
+		float alfa2[6];
+
+		int roll_estimation_on_off;
 	
 	};
 
-        struct Task: public DUNE::Tasks::Task
-        {
+       /* struct Task: public DUNE::Tasks::Task
+        {*/
+       struct Task: public DUNE::Tasks::Periodic
+       {
 
           //! Constructor.
           //! @param[in] name task name.
@@ -168,123 +168,129 @@ namespace
 
 	    //! Use NavigationUnvertainty messages to send tau to test
             IMC::EstimatedState m_est;
-	    IMC::NavigationUncertainty m_tau;
+	    IMC::NavigationUncertainty m_uncertainty;
 
 	    //! Time window between values.
-    	    //DUNE::Time::Delta m_delta;
+    	    DUNE::Time::Delta vel_delta;
+	    DUNE::Time::Delta dj_delta;
+	    DUNE::Time::Delta est_delta;
+	    DUNE::Time::Delta est_delta1;
+	    DUNE::Time::Delta est_uncertainty;
 
 	    Arguments m_args;
 	    Derivative<double> deriv;
 	   
-          Task(const std::string& name, Tasks::Context& ctx):
+        /*  Task(const std::string& name, Tasks::Context& ctx):
             DUNE::Tasks::Task(name, ctx)
-          {
-	
-         	  /* param("Entity Label - Servos", m_args.servo_entities)
-        	  .defaultValue("Servo 0, Servo 1, Servo 2, Servo 3")
-        	  .description("Label of the servo position message to compute produced torque");*/
+          {*/
+      Task(const std::string& name, Tasks::Context& ctx):
+        Periodic(name, ctx){
 
-         	   param("Entity Label - IMU", imu_entities)
+		   param("roll on off", m_args.roll_estimation_on_off)
+		  .defaultValue("1")
+		  .description("On/off variable to test roll estimation");
+
+         	   param("Entity Label IMU", imu_entities)
         	  .defaultValue("IMU")
         	  .description("Label of the IMU message");
 
-         	   param("Entity Label - AHRS", ahrs_entities)
+         	   param("Entity Label AHRS", ahrs_entities)
         	  .defaultValue("AHRS")
         	  .description("Label of the AHRS message");
 
-         	   param("k1 gain - SMO", m_args.k1[0])
+         	   param("k1 gain one", m_args.k1[0])
         	  .defaultValue("0.7")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k1[1])
+         	   param("k1 gain two", m_args.k1[1])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k1[2])
+         	   param("k1 gain three", m_args.k1[2])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k1[3])
-        	  .defaultValue("1.0")
+         	   param("k1 gain four", m_args.k1[3])
+        	  .defaultValue("1.7")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k1[4])
+         	   param("k1 gain five", m_args.k1[4])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k1[5])
+         	   param("k1 gain six", m_args.k1[5])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k2[0])
+         	   param("k2 gain one", m_args.k2[0])
         	  .defaultValue("0.7")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k2[1])
+         	   param("k2 gain two", m_args.k2[1])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k2[2])
+         	   param("k2 gain three", m_args.k2[2])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k2[3])
+         	   param("k2 gain four", m_args.k2[3])
+        	  .defaultValue("1")
+        	  .description("Sliding Mode Observer gain");
+
+         	   param("k2 gain five", m_args.k2[4])
         	  .defaultValue("0.1")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.k2[4])
-        	  .defaultValue("0.1")
-        	  .description("Sliding Mode Observer gain");
-
-         	   param("k1 gain - SMO", m_args.k2[5])
+         	   param("k2 gain six", m_args.k2[5])
         	  .defaultValue("0.2")
         	  .description("Sliding Mode Observer gain");
 
-         	   param("k1 gain - SMO", m_args.alfa1[0])
+         	   param("alfa1 gain one", m_args.alfa1[0])
         	  .defaultValue("0.7")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa1[1])
+         	   param("alfa1 gain two", m_args.alfa1[1])
         	  .defaultValue("0.1")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa1[2])
+         	   param("alfa1 gain three", m_args.alfa1[2])
         	  .defaultValue("0.1")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa1[3])
-        	  .defaultValue("1.0")
+         	   param("alfa1 gain four", m_args.alfa1[3])
+        	  .defaultValue("2")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa1[4])
+         	   param("alfa1 gain five", m_args.alfa1[4])
         	  .defaultValue("0.1")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa1[5])
+         	   param("alfa1 gain six", m_args.alfa1[5])
         	  .defaultValue("0.2")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa2[0])
+         	   param("alfa2 gain one", m_args.alfa2[0])
         	  .defaultValue("0.8")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa2[1])
+         	   param("alfa2 gain two", m_args.alfa2[1])
         	  .defaultValue("0.7")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa2[2])
+         	   param("alfa2 gain three", m_args.alfa2[2])
         	  .defaultValue("0.6")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa2[3])
+         	   param("alfa2 gain four", m_args.alfa2[3])
+        	  .defaultValue("1")
+        	  .description("Luenberger term");
+
+         	   param("alfa2 gain five", m_args.alfa2[4])
         	  .defaultValue("0.1")
         	  .description("Luenberger term");
 
-         	   param("k1 gain - SMO", m_args.alfa2[4])
-        	  .defaultValue("0.1")
-        	  .description("Luenberger term");
-
-         	   param("k1 gain - SMO", m_args.alfa2[5])
+         	   param("alfa2 gain six", m_args.alfa2[5])
         	  .defaultValue("0.2")
         	  .description("Luenberger term");
 	
@@ -297,9 +303,6 @@ namespace
 		//Linear and Angular Velocities
 		bind<IMC::AngularVelocity>(this);
 		bind<IMC::GroundVelocity>(this);
-
-		//Water Velocity
-		bind<IMC::WaterVelocity>(this);
 
 		//Depth
 		bind<IMC::Depth>(this);
@@ -315,24 +318,11 @@ namespace
 
 		bind<IMC::EntityState>(this);
 
-
           }
 
 	void
 	onEntityResolution(void)
 	{
-
-	/*try	
-	{
-	for(size_t i = 0; i < m_args.servo_entities.size(); ++i)
-	{
-	unsigned id = resolveEntity(m_args.servo_entities[i]);
-	}
-	}
-	catch (...)
-	{
-	//cout << "default exception";
-	}*/
 
 	try
 	{
@@ -405,11 +395,9 @@ namespace
 		void
       		consume(const IMC::EulerAngles* msg)
       		  {
-//err("EULER CALLED and %d", flag_initial_orientation);
                   euler_angles[0] = msg->phi;
          	  euler_angles[1] = msg->theta;
 		  euler_angles[2] = msg->psi;
-
 
 	          if(flag_initial_orientation==0)
 		  {
@@ -421,18 +409,6 @@ namespace
 		  nu_est(4,0)=euler_angles[1];
 		  nu_est(5,0)=euler_angles[2];
 		  }
-
-		 // ea_entity = euler->getSourceEntity();
-
-
- 		  euler_timestamp = msg->getTimeStamp();//p_delta.getDelta();
-
-		  if(euler_timestamp_init == 0)
-		  {
-		  euler_timestamp_ant = euler_timestamp;
-		  euler_timestamp_init = 1;
-		  }
-
 		  }
 
 		//Linear Velocity - DVL
@@ -443,28 +419,17 @@ namespace
 		  if (msg->validity & IMC::GroundVelocity::VAL_VEL_X)
 		  {
                   velocities[0] = msg->x;	
-		  //timestamps[0] = vel->getTimeStamp();//u_delta.getDelta();//vel->getTimestamp();
 		  velocities_ant[0]=velocities[0];
-		  lin_timestamp = msg->getTimeStamp();
 		  }
  		  if (!(msg->validity & IMC::GroundVelocity::VAL_VEL_X))
 		  {
                   velocities[0] = velocities_ant[0];
-		  //timestamps[0] = vel->getTimeStamp();
-		  lin_timestamp = msg->getTimeStamp();
-		  }
-
-		  if(lin_timestamp_init == 0)
-		  {
-		  lin_timestamp_ant = lin_timestamp;
-		  lin_timestamp_init = 1;
 		  }
 
 
 		  if (msg->validity & IMC::GroundVelocity::VAL_VEL_Y)
 		  {
          	  velocities[1] = msg->y;
-		  //timestamps[1] = vel->getTimeStamp();//v_delta.getDelta(); //vel->getTimestamp();
 		  velocities_ant[1]=velocities[1];
 		  }
  		  if (!(msg->validity & IMC::GroundVelocity::VAL_VEL_Y))
@@ -476,15 +441,12 @@ namespace
 		  if (msg->validity & IMC::GroundVelocity::VAL_VEL_Z)
 		  {
 		  velocities[2] = msg->z;
-		  //timestamps[2] = vel->getTimeStamp();//w_delta.getDelta();//vel->getTimestamp();
 		  velocities_ant[2]=velocities[2];
 		  }
  		  if (!(msg->validity & IMC::GroundVelocity::VAL_VEL_Z))
 		  {
                   velocities[2] = velocities_ant[2];
 		  }
-
-
 		  }
 
 		//Angular Velocity - IMU or AHRS
@@ -496,31 +458,8 @@ namespace
                   velocities[3] = msg->x;
          	  velocities[4] = msg->y;
 		  velocities[5] = msg->z;
-
-		  //angvel_timestamp = angvel->getTimeStamp();//p_delta.getDelta();
-
-		  if(angvel_timestamp_init == 0)
-		  {
-		  angvel_timestamp_ant = angvel_timestamp;
-		  angvel_timestamp_init = 1;
 		  }
-
 		  }
-
-		  //angvel_entity = angvel->getSourceEntity();
-		  }
-
-		//Water Velocity
-		void
-		consume(const IMC::WaterVelocity* msg)
-		{
-		watervelocity[0] = msg->x;
-         	watervelocity[1] = msg->y;
-		watervelocity[2] = msg->z;
-		watervelocity[3] = 0;
-		watervelocity[4] = 0;
-		watervelocity[5] = 0;
-		}
 
 		//Depth - Pressure Sensor
 		void
@@ -584,21 +523,17 @@ namespace
           {
           }
 
-
-
 	/*********************Compute Rotation Matrix, is Derivative and Velocity measure Matrix*********************/
 
 	  Matrix
-	  ComputeJ(void)
+	  ComputeJ(double j_angles[])
 	  {
 		// Pass euler angles to row matrix
 	       	 Math::Matrix ea(3,1);
-     		 ea(0) = Math::Angles::normalizeRadian(euler_angles_est[0]);
-     		 ea(1) = Math::Angles::normalizeRadian(euler_angles_est[1]);
-     		 ea(2) = Math::Angles::normalizeRadian(euler_angles_est[2]);
+     		 ea(0) = Math::Angles::normalizeRadian(j_angles[0]);//_est[0]);
+     		 ea(1) = Math::Angles::normalizeRadian(j_angles[1]);//_est[1]);
+     		 ea(2) = Math::Angles::normalizeRadian(j_angles[2]);//_est[2]);
 
-     		 // Create 6x6 Rotation Matrix
-     		// Math::Matrix J(6,6);
     		 J = ea.toDCMSMO();
 
 		return J;
@@ -628,287 +563,24 @@ namespace
 		return v_tmp;
 	  }
 
-	  Matrix
-	  ComputeJ_est(double pos_estimado[])
-	  {
-		// Pass euler angles to row matrix
-	       	 Math::Matrix ea(3,1);
-     		 ea(0) = Math::Angles::normalizeRadian(pos_estimado[3]);
-     		 ea(1) = Math::Angles::normalizeRadian(pos_estimado[4]);
-     		 ea(2) = Math::Angles::normalizeRadian(pos_estimado[5]);
-
-     		 // Create 6x6 Rotation Matrix
-     		 Math::Matrix J_est(6,6);
-    		 J_est = ea.toDCMSMO();
-
-		return J_est;
-	  }
-
 	/*********************END Compute Rotation Matrix, is Derivative and Velocity measure Matrix*********************/
 
 
-
-	/*********************Compute AUV Model Matrices*********************/
-
-	
-	  Matrix	
-	  ComputeM_RB(void)//Function checked, inertia matrix is good
-	  {
-	  //Inertia Matrix
-		double MRB_vector[36]={m,0,0,0,m*zG,0,0,m,0,-m*zG,0,0,0,0,m,0,0,0, 0,-m*zG,0,Ixx,0,0,m*zG,0,0,0,Iyy,0,0,0,0,0,0,Izz};	
-		return ( Matrix(MRB_vector, 6, 6) );
-	  }
-
-	  Matrix	
-	  ComputeM_A(void)//Function checked, inertia matrix is good
-	  {
-	  //Inertia Matrix
-		double MA_vector[6]={-Xdudt,-Ydvdt,-Zdwdt,-Kdpdt,-Mdqdt,-Ndrdt};	
-		return ( Matrix(MA_vector, 6) ); // Creates diagonal Matrix 
-	  }
-
-	  Matrix
-	  ComputeC_RB(double v_estimado[])//Function checked, coriolis matrix is good
-	  {
-	  // Coriolis Matrix
-
-		 //double u = vel[0];//m_args.velocities[0];
-		 double u = v_estimado[0];
-     		 double v = v_estimado[1];
-     		 double w = v_estimado[2];
-     		 double p = v_estimado[3];
-     		 double q = v_estimado[4];
-     		 double r = v_estimado[5];
-
-	  	 double CRB_vector[36]={0,0,0,m*(yg*q+zg*r),-m*(xg*q-w),-m*(xg*r+v),0,0,0,-m*(yg*p+w),m*(zg*r+xg*p),-m*(yg*r-u),0,0,0,-m*(zg*p-v),-m*(zg*q+u),m*(xg*p+yg*q),-m*(yg*q+zg*r),m*(yg*p+w),m*(zg*p-v),0,Iyz*q-Ixz*p+Izz*r,Iyz*r+Ixy*p-Iyy*q,m*(xg*q-w),-m*(zg*r+xg*p),m*(zg*q+u),Iyz*q+Ixz*p-Izz*r,0,-Ixz*r-Ixy*q+Ixx*p,m*(xg*r+v),m*(yg*r-u),-m*(xg*p+yg*q),-Iyz*r-Ixy*p+Iyy*q,Ixz*r+Ixy*q-Ixx*p,0};
-
-		return (Matrix(CRB_vector, 6, 6) );
-	  }
-
-	  Matrix
-	  ComputeC_A(double v_estimado[])//Function checked, coriolis matrix is good
-	  {
-	  // Coriolis Matrix
-
-		 double ur = v_estimado[0];
-     		 double vr = v_estimado[1];
-     		 double wr = v_estimado[2];
-     		 double pr = v_estimado[3];
-     		 double qr = v_estimado[4];
-     		 double rr = v_estimado[5];
-
-	  	 double CA_vector[36]={0,0,0,0,-Zdwdt*wr,Ydvdt*vr,0,0,0,Zdwdt*wr,0,-Xdudt*ur,0,0,0,-Ydvdt*vr,Xdudt*ur,0,0,-Zdwdt*wr,Ydvdt*vr,0,-Ndrdt*rr, Mdqdt*qr,Zdwdt*wr,0,-Xdudt*ur,Ndrdt*rr,0,-Kdpdt*pr,-Ydvdt*vr,Xdudt*ur,0,-Mdqdt*qr,Kdpdt*pr,0};
-
-		return (Matrix(CA_vector, 6, 6) );
-	  }
-
-	  Matrix 
-	  ComputeD(double v_estimado[]) //Function checked, damping matrix is good
-	  {
-	  // Damping Matrix
-
-		 double ur = v_estimado[0];
-     		 double vr = v_estimado[1];
-     		 double wr = v_estimado[2];
-     		 double pr = v_estimado[3];
-     		 double qr = v_estimado[4];
-     		 double rr = v_estimado[5];
-
-	  	 double D1_vector[36]={2.4,0,0,0,0,0,0,23,0,0,0,-11.5,0,0,23,0,11.5,0,0,0,0,0.3,0,0,0,0,-3.1,0,9.7,0,0,3.1,0,0,0,9.7};
-
-		double D2_vector[36]={2.4*std::abs(ur),0,0,0,0,0,0,80.0*std::abs(vr),0,0,0,-0.3*std::abs(rr),0,0,80.0*std::abs(wr),0,0.3*std::abs(qr),0,0,0,0,6e-4*std::abs(pr),0,0,0,0,-1.5*std::abs(wr),0,9.1*std::abs(qr),0,0,1.5*std::abs(vr),0,0,0,9.1*std::abs(rr)};
-
-
-		return (Matrix(D1_vector, 6, 6) + Matrix(D2_vector, 6, 6) );
-	  }
-
- 	  Matrix
-	  ComputeL(double v_estimado[])//Function checked, lift matrix is good
-	  {
-	  // Lift Matrix
-
-		 double ur = v_estimado[0];
-
-		 double L_vector[36]={0,0,0,0,0,0,0,30*ur,0,0,0,-7.7*ur,0,0,30*ur,0,7.7*ur,0,0,0,0,0,0,0,0,0,9.9*ur,0,3.1*ur,0,0,-9.9*ur,0,0,0,3.1*ur};
-
-		/*inf("value L");
-		std::cout << Matrix(L_vector, 6, 6) << std::endl;*/
-
-		return (Matrix(L_vector, 6, 6) );
-
-	   }
-
- 	  Matrix
-	  ComputeG(double pos_estimado[]) //Function checked, restoring forces matrix is good
-	  {
-	  // Restoring forces Matrix
-
- 	         double phi = Math::Angles::normalizeRadian(euler_angles[0]);
-     		 double theta = Math::Angles::normalizeRadian(euler_angles[1]);
-     		 //double psi = Math::Angles::normalizeRadian(euler_angles[2]);
-		 /*double phi = Math::Angles::normalizeRadian(pos_estimado[3]);
-     		 double theta = Math::Angles::normalizeRadian(pos_estimado[4]);
-     		 double psi = Math::Angles::normalizeRadian(pos_estimado[5]);*/
-
-		 // Pass euler angles to row matrix
-	       	 Math::Matrix G(6,1);
-     		 G(0) = (W-B)*sin(theta);
-     		 G(1) = -(W-B)*cos(theta)*sin(phi);
-     		 G(2) = -(W-B)*cos(theta)*cos(phi);
-     		 G(3) = zg*W*cos(theta)*sin(phi);
-     		 G(4) = zg*W*sin(theta);
-     		 G(5) = 0;
-
-		return G;
-
-	  }
-
-
-	Matrix
-    	ComputeTau(void)
-    	{
-      	Matrix tau_tmp(6, 1, 0.0);
-      	Matrix deflections(3, 1, 0.0);
-	Matrix m_fin_lift(5,1);
-	double m_motor_friction = 0.06;
-	double fincoef[5] = {9.6, -9.6, 1.82, -3.84, -3.84};
-	m_fin_lift= Matrix(fincoef, 5, 1);
-	
-
-     	  deflections(0) = servo_pos[3] - servo_pos[0] + servo_pos[1] - servo_pos[2];
-    	  deflections(1) = servo_pos[1] + servo_pos[2];
-    	  deflections(2) = servo_pos[0] + servo_pos[3];
-
-     	  tau_tmp(0) = thruster * 10; // Times 10 to compute thruster force between -10 and 10
-    	  tau_tmp(1) = m_fin_lift(0) * velocities[0] * velocities[0] * deflections(2);
-    	  tau_tmp(2) = m_fin_lift(1) * velocities[0] * velocities[0] * deflections(1);
-    	  tau_tmp(3) = 1 * (m_fin_lift(2) * velocities[0] * velocities[0] * deflections(0) + m_motor_friction * tau_tmp(0) );
-    	  tau_tmp(4) = m_fin_lift(3) * velocities[0] * velocities[0] * deflections(1);
-    	  tau_tmp(5) = m_fin_lift(4) * velocities[0] * velocities[0] * deflections(2);
-
-
-     	 return tau_tmp;
-   	 }
-
-	/*********************END Compute AUV Model Matrices*********************/
-
-
-
-
-	/*********************Sliding Mode Observer Gain Matrices*********************/
-
-	Matrix
-	ComputeK1(void)
-	{
-		Matrix K1 = Matrix(6, 6, 0.0);
-  		K1(0, 0) = 0.7;
-  		K1(1, 1) = 0.1;
-  		K1(2, 2) = 0.1;
-  		K1(3, 3) = 1;
-  		K1(4, 4) = 0.1;
-  		K1(5, 5) = 0.1;
-
-		return K1;
-	}
-
-	Matrix
-	ComputeK2(void)
-	{
-		Matrix K2 = Matrix(6, 6, 0.0);
-  		K2(0, 0) = 0.7;
-  		K2(1, 1) = 0.1;
-  		K2(2, 2) = 0.1;
-  		K2(3, 3) = 0.1;
-  		K2(4, 4) = 0.1;
-  		K2(5, 5) = 0.2;
-
-		return K2;
-	}
-
-	Matrix
-	Computealfa1(void)
-	{
-		Matrix alfa1 = Matrix(6, 6, 0.0);
-  		alfa1(0, 0) = 0.7;
-  		alfa1(1, 1) = 0.1;
-  		alfa1(2, 2) = 0.1;
-  		alfa1(3, 3) = 1;
-  		alfa1(4, 4) = 0.1;
-  		alfa1(5, 5) = 0.2;
-
-		return alfa1;
-	}
-
-	Matrix
-	Computealfa2(void)
-	{
-		Matrix alfa2 = Matrix(6, 6, 0.0);
-  		alfa2(0, 0) = 0.8;
-  		alfa2(1, 1) = 0.7;
-  		alfa2(2, 2) = 0.6;
-  		alfa2(3, 3) = 0.1;
-  		alfa2(4, 4) = 0.1;
-  		alfa2(5, 5) = 0.2;
-
-		return alfa2;
-	}
-
-	Matrix
-	Computesignum(double error[])
-	{
-		Matrix signum = Matrix(6, 1, 0.0);
-		int i=0;
-
-		for ( i = 0; i <= 5; i++ )
-		{
-			if(error[i]<0)
-			{
-  			signum(i, 0) = - 1;
-			}
-			if(error[i]>=0)
-			{
-  			signum(i, 0) = 1;
-			}
-		}
-
-		return signum;
-	}
-
-	Matrix
-	Computetanh(double error[])
-	{
-		Matrix tgh=Matrix(6,1,0.0);
-		int i=0;
-		double boundarylayer=0.15;
-
-		for ( i = 0; i <= 5; i++)
-		{
-			tgh(i, 0) = tanh(error[i]/boundarylayer);
-		}
-
-		return tgh;
-	}
-
-	/*********************END Sliding Mode Observer Gain Matrices*********************/
-
-
-	
           //! Main loop.
-          void
+        /*  void
           onMain(void)
-          {
-
-
-            while (!stopping())
+          {*/
+      void
+      task(void)
+      {
+         /*   while (!stopping())
             {
-              waitForMessages(1.0);
-
+              waitForMessages(1.0);*/
 
 
 		/*******************GPS Signal Acquisition*******************/
 	
-
-		 Coordinates::WGS84::getNEBearingAndRange(gps_initial_point[0], gps_initial_point[1], gps_fix[1], gps_fix[2], &bearing, &range);
+		Coordinates::WGS84::getNEBearingAndRange(gps_initial_point[0], gps_initial_point[1], gps_fix[1], gps_fix[2], &bearing, &range);
 
 		x = range * std::cos(bearing);
 		y = range * std::sin(bearing);
@@ -924,70 +596,36 @@ namespace
 		nu(2,0)=z;
 		}
 
-
 		/*******************END GPS Signal Acquisition*******************/
 
-
-
 		/*********************Position Measure from Velocity*********************/
-		
-
-		euler_angles_est[0] = nu(3,0);
-		euler_angles_est[1] = nu(4,0);
-		euler_angles_est[2] = nu(5,0);
-
 
 		//Take out earth rotation from angular velocities
 
-		er[0]=((sin(nu(3,0))*sin(nu(4,0))*cos(nu(5,0))-cos(nu(3,0))*sin(nu(5,0)))*cos(gps_fix[1]) - sin(nu(3,0))*cos(nu(4,0))*sin(gps_fix[1]))*7.292115e-5;
+		er[0]=((std::sin(nu(3,0))*std::sin(nu(4,0))*std::cos(nu(5,0))-std::cos(nu(3,0))*std::sin(nu(5,0)))*std::cos(gps_fix[1]) - std::sin(nu(3,0))*std::cos(nu(4,0))*std::sin(gps_fix[1]))*7.292115e-5;
 
-		er[1]=((sin(nu(3,0))*sin(nu(5,0))+cos(nu(3,0))*sin(nu(4,0))*cos(nu(5,0)))*cos(gps_fix[1]) - cos(nu(3,0))*cos(nu(4,0))*sin(gps_fix[1]))*7.292115e-5;
+		er[1]=((std::sin(nu(3,0))*std::sin(nu(5,0))+std::cos(nu(3,0))*std::sin(nu(4,0))*std::cos(nu(5,0)))*std::cos(gps_fix[1]) - std::cos(nu(3,0))*std::cos(nu(4,0))*std::sin(gps_fix[1]))*7.292115e-5;
 
-
-		// Calculate Rotation Matrix	
-		J=ComputeJ();
+		// Calculate Rotation Matrix
+		double j_angles[3]={nu(3,0),nu(4,0),nu(5,0)};	
+		J=ComputeJ(j_angles);
 		vel=Computev();
-
 
 		// Calculate nu_dot
 		nu_dot=J*vel;
 
 		// Integrate velocity in Earth-fixed Frame to obtain position	
-		double delta_lin = lin_timestamp - lin_timestamp_ant;
-		double delta_ang = angvel_timestamp - angvel_timestamp_ant;
-		double delta_euler = euler_timestamp - euler_timestamp_ant; 
+		vel_int_delta=vel_delta.getDelta(); 
 
-		nu(0,0)=nu(0,0) + (nu_dot_ant(0,0) + nu_dot(0,0))/2*delta_lin;
-		nu(1,0)=nu(1,0) + (nu_dot_ant(1,0) + nu_dot(1,0))/2*delta_lin;
-		nu(2,0)=nu(2,0) + (nu_dot_ant(2,0) + nu_dot(2,0))/2*delta_lin;
+		nu(0,0)=nu(0,0) + (nu_dot_ant(0,0) + nu_dot(0,0))/2*vel_int_delta;
+		nu(1,0)=nu(1,0) + (nu_dot_ant(1,0) + nu_dot(1,0))/2*vel_int_delta;
+		nu(2,0)=nu(2,0) + (nu_dot_ant(2,0) + nu_dot(2,0))/2*vel_int_delta;
 
-		nu(3,0)=nu(3,0) + (nu_dot_ant(3,0) + nu_dot(3,0))/2*delta_ang;
-		nu(4,0)=nu(4,0) + (nu_dot_ant(4,0) + nu_dot(4,0))/2*delta_ang;
-		nu(5,0)=nu(5,0) + (nu_dot_ant(5,0) + nu_dot(5,0))/2*delta_ang;
-
+		nu(3,0)=nu(3,0) + (nu_dot_ant(3,0) + nu_dot(3,0))/2*vel_int_delta;
+		nu(4,0)=nu(4,0) + (nu_dot_ant(4,0) + nu_dot(4,0))/2*vel_int_delta;
+		nu(5,0)=nu(5,0) + (nu_dot_ant(5,0) + nu_dot(5,0))/2*vel_int_delta;
 
 		nu_dot_ant=nu_dot;
-
-		lin_timestamp_ant = lin_timestamp;
-		angvel_timestamp_ant = angvel_timestamp;
-		euler_timestamp_ant = euler_timestamp;
-		
-
-		double teste[12] = {nu(0, 0), nu(1, 0), nu(2, 0), nu(3, 0), nu(4, 0), nu(5, 0), vel(0,0), vel(1,0), vel(2,0), vel(3,0), vel(4,0), vel(5,0)};
-		m_tau.x = teste[0];
-		m_tau.y = teste[1];
-		m_tau.z = teste[2];
-		m_tau.phi = euler_angles[0];//teste[3];
-		m_tau.theta = euler_angles[1];//teste[4];
-		m_tau.psi = euler_angles[2];//teste[5];
-		m_tau.u = teste[6];
-		m_tau.v = teste[7];
-		m_tau.w = teste[8];
-		m_tau.p = nu_est(3,0);//teste[9];
-		m_tau.q = teste[10];
-		m_tau.r = teste[11];
-		dispatch(m_tau);
-
 		
 		/*******************END Position Measure from Velocity*******************/
 
@@ -1002,120 +640,141 @@ namespace
 		}
 
 		if(flag_valid_pos == 0)
-		{//std::cout << m_args.gps_accurracy[0] << std::endl;
+		{
 		nu(0,0)=nu(0,0);
 		nu(1,0)=nu(1,0);
-		nu(2,0)=profundity[0]; // Depth Sensor to reference vector
+		nu(2,0)=profundity[0];
 		}
-		double delta_smo=0;
-		if(flag_imu_active == 1/*imu_entity == angvel_entity*/)
+		if(flag_imu_active == 1)
 		{
-		//std::cout << "teste1" << std::endl;
 		nu(3,0)=nu(3,0);
 		nu(4,0)=nu(4,0);
 		nu(5,0)=nu(5,0);
-		delta_smo=delta_ang;
 		}
 		
 		if((flag_imu_active == 0 || flag_imu_active == -1) && (flag_ahrs_active==1))
 		{
-		//std::cout << "teste2" << std::endl;
 		nu(3,0)=euler_angles[0];
 		nu(4,0)=euler_angles[1];
 		nu(5,0)=euler_angles[2];
-		delta_smo=delta_euler;
 		}
-
 
 		nu(3,0)=Math::Angles::normalizeRadian(nu(3,0));
 		nu(4,0)=Math::Angles::normalizeRadian(nu(4,0));
 		nu(5,0)=Math::Angles::normalizeRadian(nu(5,0));
 
 		/*********************End Choosing measure to use in estimation and correct velocity estimation based*********************/
-
-
-
-
 	
 		/**************************Sliding Mode Observer*************************/
-
 
 		// Calculate error for Sliding Mode Observer
 
 		nu_error=nu_est-nu;
 
+		if(nu_error(3,0)<=-3.14)
+		{
+		nu_error(3,0)=nu_error(3,0)+360*3.14/180;
+		}
+		if(nu_error(3,0)>=3.14)
+		{
+		nu_error(3,0)=nu_error(3,0)-360*3.14/180;
+		}
+
+		if(nu_error(4,0)<=-3.14)
+		{
+		nu_error(4,0)=nu_error(4,0)+360*3.14/180;
+		}
+		if(nu_error(4,0)>=3.14)
+		{
+		nu_error(4,0)=nu_error(4,0)-360*3.14/180;
+		}
+
+		if(nu_error(5,0)<=-3.14)
+		{
+		nu_error(5,0)=nu_error(5,0)+360*3.14/180;
+		}
+		if(nu_error(5,0)>=3.14)
+		{
+		nu_error(5,0)=nu_error(5,0)-360*3.14/180;
+		}
+
 		/*************************AUV Model Calculation*************************/
-
-
-		// Estimate AUV Dynamic dv_dt_est = inv(M) * ( tau - C * v - D * v - L * v - G ); - nu_dot = J * v_est
-
-		// Compute tau - tau = M * dv_dt + C * v + D * v + L * v +  G 
-		tau = ComputeTau();
 		
-		double v_estimado[6] = {v_est(0, 0), v_est(1, 0), v_est(2, 0), v_est(3, 0), v_est(4, 0), v_est(5, 0)};
+	        double v_estimado[6] = {v_est(0, 0), v_est(1, 0), v_est(2, 0), v_est(3, 0), v_est(4, 0), v_est(5, 0)};
 		double pos_estimado[6] = {nu(0, 0), nu(1, 0), nu(2, 0), nu(3, 0), nu(4, 0), nu(5, 0)};
-		Math::Matrix J_est(6,6); J_est=J;//ComputeJ_est(pos_estimado);J=J_est;
 
 		//Compute k1, k2, alfa1, alfa 2 and signum function for Sliding Mode Observer
-
-		Math::Matrix K1(6,6); K1=ComputeK1();
-		Math::Matrix K2(6,6); K2=ComputeK2();
-		Math::Matrix alfa1(6,6); alfa1=Computealfa1();
-		Math::Matrix alfa2(6,6); alfa2=Computealfa2();
 		double error[6] = {nu_error(0, 0), nu_error(1, 0), nu_error(2, 0), nu_error(3, 0), nu_error(4, 0), nu_error(5, 0)};
-		Math::Matrix signum(6,1); signum=Computesignum(error);
-		Math::Matrix tanghyper(6,1); tanghyper=Computetanh(error);
+		Math::Matrix K1(6,6);          K1=ComputeK1(m_args.k1);
+		Math::Matrix K2(6,6);          K2=ComputeK2(m_args.k2);
+		Math::Matrix alfa1(6,6);       alfa1=Computealfa1(m_args.alfa1);
+		Math::Matrix alfa2(6,6);       alfa2=Computealfa2(m_args.alfa2);
+		Math::Matrix signum(6,1);      signum=Computesignum(error);
+		Math::Matrix tanghyper(6,1);   tanghyper=Computetanh(error);
 
-
-		double delta_dj=delta_smo;
-		// Compute derivative of Rotation Matrix
-		if(std::abs(delta_dj)<0.000001){J_ant=J;delta_dj=1;}
-		dJ=(J-J_ant)/delta_dj;
+		j_delta=dj_delta.getDelta();
+		dJ=(J-J_ant)/j_delta;
 		J_ant=J;
 
+		// Compute AUV Dynamic
+                Math::Matrix M_RB(6,6);   M_RB=ComputeM_RB1(m,zG,Ixx,Iyy,Izz);
+                Math::Matrix M_A(6,6);    M_A=ComputeM_A1(Xdudt,Ydvdt,Zdwdt,Kdpdt,Mdqdt,Ndrdt);
+                Math::Matrix C_RB(6,6);   C_RB=ComputeC_RB1(m,xg,yg,zG,Ixx,Iyy,Izz,Ixz,Ixy,Iyz,v_estimado);
+                Math::Matrix C_A(6,6);    C_A=ComputeC_A1(Xdudt,Ydvdt,Zdwdt,Kdpdt,Mdqdt,Ndrdt,v_estimado);
+                Math::Matrix D(6,6);      D=ComputeD1(v_estimado);
+                Math::Matrix L(6,6);      L=ComputeL1(v_estimado);
+                Math::Matrix G(6,6);      G=ComputeG1(W,B,zG,pos_estimado);
+                Math::Matrix tau1(6,1);   tau=ComputeTau1(thruster,velocities,servo_pos);
 
 		// Dynamic of AUV in Eart-fixed Frame
-
-		Math:: Matrix Mn(6,6); Mn = inverse (transpose( J ) ) * ( ComputeM_RB() + ComputeM_A() )  * inverse( J );
-		Math:: Matrix Cn(6,6); Cn = inverse (transpose( J ) ) * ( ( ComputeC_RB(v_estimado) + ComputeC_A(v_estimado) ) - ( ComputeM_RB() +  ComputeM_A() )  * inverse ( J ) * dJ ) * inverse (J);
-		Math:: Matrix Dn(6,6); Dn = inverse (transpose( J ) ) * ComputeD(v_estimado) * inverse ( J );
-		Math:: Matrix Gn(6,6); Gn = inverse (transpose( J ) ) * ComputeG(pos_estimado);
-		Math:: Matrix Ln(6,6); Ln = inverse (transpose( J ) ) * ComputeL(v_estimado) * inverse (J);
+		Math:: Matrix Mn(6,6); Mn = inverse (transpose( J ) ) * ( M_RB + M_A )  * inverse( J );
+		Math:: Matrix Cn(6,6); Cn = inverse (transpose( J ) ) * ( ( C_RB + C_A ) - ( M_RB +  M_A )  * inverse ( J ) * dJ ) * inverse (J);
+		Math:: Matrix Dn(6,6); Dn = inverse (transpose( J ) ) * D * inverse ( J );
+		Math:: Matrix Gn(6,6); Gn = inverse (transpose( J ) ) * G;
+		Math:: Matrix Ln(6,6); Ln = inverse (transpose( J ) ) * L * inverse (J);
 		Math:: Matrix Fn(6,6); Fn = inverse (transpose( J ) ) * tau;
 
 		/***********************END AUV Model Calculation***********************/
 
-		//dv_dt_est = /*-alfa2 * nu_error + */inverse( ComputeM_RB() + ComputeM_A() ) * (tau - ( ComputeC_RB(v_estimado) + ComputeC_A(v_estimado) ) * v_est - ComputeD(v_estimado) * v_est /*- ComputeL(v_estimado) * v_est - ComputeG(pos_estimado)/* - K2 * signum */);
-
 		// Sliding Mode Observer
-		dn_est = J * v_est;Math:: Matrix Mn_tmp=inverse(Mn);Mn_tmp(3,0)=0;Mn_tmp(3,1)=0;Mn_tmp(3,2)=0;Mn_tmp(3,3)=0;Mn_tmp(3,4)=0;Mn_tmp(3,5)=0;
-		//dn_est(0,0)=0;dn_est(1,0)=0;dn_est(2,0)=0;dn_est(4,0)=0;dn_est(5,0)=0;dn_est(3,0)=0;
+		dn_est = J * v_est;
+
+		Math:: Matrix Mn_tmp=inverse(Mn);
+		Mn_tmp(3,0)=m_args.roll_estimation_on_off*Mn_tmp(3,0);
+		Mn_tmp(3,1)=m_args.roll_estimation_on_off*Mn_tmp(3,1);
+		Mn_tmp(3,2)=m_args.roll_estimation_on_off*Mn_tmp(3,2);
+		Mn_tmp(3,3)=m_args.roll_estimation_on_off*Mn_tmp(3,3);
+		Mn_tmp(3,4)=m_args.roll_estimation_on_off*Mn_tmp(3,4);
+		Mn_tmp(3,5)=m_args.roll_estimation_on_off*Mn_tmp(3,5);
+		Fn(3)=m_args.roll_estimation_on_off*Fn(3);
+
 		dv_dt_est = inverse( J ) * ( -alfa2 * nu_error + Mn_tmp * Fn + inverse( Mn ) * ( 0*Fn - Cn * dn_est - Dn * dn_est - Ln * dn_est - Gn ) - dJ * v_est - K2 * tanghyper);//signum );
-		//dv_dt_est = inverse( ComputeM_RB() + ComputeM_A() ) * (tau -  ComputeC_RB(v_estimado) * v_est - ComputeC_A(v_estimado) * v_est - ComputeD(v_estimado) * v_est - ComputeL(v_estimado) * v_est - ComputeG(pos_estimado));
 
-		v_est = v_est + dv_dt_est * delta_smo;//delta_ang;//timestep ;
+		smo_delta = est_delta.getDelta();
 
-		if(v_est(0)>1.9)
+		v_est = v_est + dv_dt_est * smo_delta;
+
+		if(v_est(0)>2)
 		{
-		v_est(0)=1.9;
+		v_est(0)=2;
 		}
-		if(v_est(0)<0)
+		if(v_est(0)<-2)
 		{
-		v_est(0)=0;
+		v_est(0)=-2;
 		}
 
-		nu_dot_est =  -alfa1 * nu_error + J * v_est - K1 * tanghyper;//signum;
+		nu_dot_est = -alfa1 * nu_error + J * v_est - K1 * tanghyper;
 
-		nu_est = nu_est + (nu_dot_est_ant + nu_dot_est)/2 * delta_smo;//delta_ang;//* timestep;
+		smo_delta1 = est_delta1.getDelta();
+
+		nu_est = nu_est + (nu_dot_est_ant + nu_dot_est)/2 * smo_delta1;
 
 		nu_dot_est_ant = nu_dot_est;
 
 		// Normalize estimated and measure euler angles
-
 		nu_est(3,0)=Math::Angles::normalizeRadian(nu_est(3,0));
 		nu_est(4,0)=Math::Angles::normalizeRadian(nu_est(4,0));
 		nu_est(5,0)=Math::Angles::normalizeRadian(nu_est(5,0));
-
 
 		double teste1[12] = {nu_est(0, 0), nu_est(1, 0), nu_est(2, 0), nu_est(3, 0), nu_est(4, 0), nu_est(5, 0), v_est(0,0), v_est(1,0), v_est(2,0), v_est(3,0), v_est(4,0), v_est(5,0)};
 		m_est.x = teste1[0];
@@ -1135,22 +794,46 @@ namespace
 		m_est.height = gps_initial_point[2];
 		dispatch(m_est);
 
-		inf("k1");
-		std::cout << m_args.k1[0] << std::endl;
-		std::cout << m_args.k1[1] << std::endl;
-		std::cout << m_args.k1[2] << std::endl;
-		std::cout << m_args.k1[3] << std::endl;
-		std::cout << m_args.k1[4] << std::endl;
-		std::cout << m_args.k1[5] << std::endl;
-
-
 		/*******************END Sliding Mode Observer*******************/
 
+		/*Navigation Uncertainty*/
 
-	
-		//sleep(1);
-		//sleep(timestep);
-            }
+		error_counter = error_counter + 1;
+
+		v_est_uncertainty(0) = v_est_uncertainty(0) + std::abs(v_est(0)-vel(0));
+		v_est_uncertainty(1) = v_est_uncertainty(1) + std::abs(v_est(1)-vel(1));
+		v_est_uncertainty(2) = v_est_uncertainty(2) + std::abs(v_est(2)-vel(2));
+		v_est_uncertainty(3) = v_est_uncertainty(3) + std::abs(v_est(3)-vel(3));
+		v_est_uncertainty(4) = v_est_uncertainty(4) + std::abs(v_est(4)-vel(4));
+		v_est_uncertainty(5) = v_est_uncertainty(5) + std::abs(v_est(5)-vel(5));
+
+
+		nu_dot_uncertainty = J * ( v_est - vel );
+		est_unc = est_uncertainty.getDelta();
+		nu_uncertainty = nu_uncertainty + nu_dot_uncertainty * est_unc;
+
+		nu_uncertainty(2) = std::abs(nu_est(2) - nu(2));
+		nu_uncertainty(3) = std::abs(nu_est(3) - nu(3)); 
+		nu_uncertainty(4) = std::abs(nu_est(4) - nu(4)); 
+		nu_uncertainty(5) = std::abs(nu_est(5) - nu(5)); 
+
+		double tmp[12] = {nu_uncertainty(0),nu_uncertainty(1),nu_uncertainty(2)/error_counter,nu_uncertainty(3)/error_counter,nu_uncertainty(4)/error_counter,nu_uncertainty(5)/error_counter,v_est_uncertainty(0)/error_counter,v_est_uncertainty(1)/error_counter,v_est_uncertainty(2)/error_counter,v_est_uncertainty(3)/error_counter,v_est_uncertainty(4)/error_counter,v_est_uncertainty(5)/error_counter};
+
+		m_uncertainty.x = std::abs(tmp[0]);
+		m_uncertainty.y = std::abs(tmp[1]);
+		m_uncertainty.z = tmp[2];
+		m_uncertainty.phi = tmp[3];
+		m_uncertainty.theta = tmp[4];
+		m_uncertainty.psi = tmp[5];
+		m_uncertainty.u = tmp[6];
+		m_uncertainty.v = tmp[7];
+		m_uncertainty.w = tmp[8];
+		m_uncertainty.p = tmp[9];
+		m_uncertainty.q = tmp[10];
+		m_uncertainty.r = tmp[11];
+		dispatch(m_uncertainty);
+
+           // }
           }
         };
       }
