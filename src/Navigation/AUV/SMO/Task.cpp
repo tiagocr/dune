@@ -75,7 +75,18 @@ namespace
           float k2[6];
           float alfa1[6];
           float alfa2[6];
+          //Roll estimation parameter on/off
           int roll_estimation_on_off;
+
+          //RPM Multiplicative Factor
+          double rpm_multiplicative_factor;
+
+          // Resolve Entity string
+          //std::vector<std::string> servo_entities;
+          std::string imu_entities;
+          std::string ahrs_entities;
+          std::string dvl_entities;
+          std::string rpm_entities;
         };
 
         struct Task: public DUNE::Tasks::Periodic
@@ -110,6 +121,7 @@ namespace
 	  double dv_dt; 
           double delta_v;
           double teste;
+
           // Entity ID
           int imu_entity;
           int ahrs_entity;
@@ -120,12 +132,7 @@ namespace
           int flag_rpm_active;
           int flag_dvl_active;
           int error_counter;
-          // Resolve Entity string
-          //std::vector<std::string> servo_entities;
-          std::string imu_entities;
-          std::string ahrs_entities;
-          std::string dvl_entities;
-          std::string rpm_entities;
+
           // Sliding Mode Observer Matrices
           Math::Matrix nu_dot;
           Math::Matrix nu_dot_ant;
@@ -163,23 +170,27 @@ namespace
           Task(const std::string& name, Tasks::Context& ctx):
             Periodic(name, ctx)
           {
+            param("RPM factor", m_args.rpm_multiplicative_factor)
+            .defaultValue("1.2e-3")
+            .description("RPM Multiplicative Factor");
+
             param("roll on off", m_args.roll_estimation_on_off)
             .defaultValue("1")
             .description("On/off variable to test roll estimation");
 
-            param("Entity Label IMU", imu_entities)
+            param("Entity Label IMU", m_args.imu_entities)
             .defaultValue("IMU")
             .description("Label of the IMU message");
 
-            param("Entity Label AHRS", ahrs_entities)
+            param("Entity Label AHRS", m_args.ahrs_entities)
             .defaultValue("AHRS")
             .description("Label of the AHRS message");
 
-            param("Entity Label DVL", dvl_entities)
+            param("Entity Label DVL", m_args.dvl_entities)
             .defaultValue("DVL")
             .description("Label of the DVL message");
 
-            param("Entity Label MOTOR", rpm_entities)
+            param("Entity Label MOTOR", m_args.rpm_entities)
             .defaultValue("MOTOR")
             .description("Label of the RPM message");
 
@@ -336,7 +347,7 @@ namespace
           {
             try
             {
-              imu_entity = resolveEntity(imu_entities);
+              imu_entity = resolveEntity(m_args.imu_entities);
             }
             catch (...)
             {
@@ -346,7 +357,7 @@ namespace
 
             try
             {
-              ahrs_entity = resolveEntity(ahrs_entities);
+              ahrs_entity = resolveEntity(m_args.ahrs_entities);
             }
             catch (...)
             {
@@ -356,7 +367,7 @@ namespace
 
             try
             {
-              dvl_entity = resolveEntity(dvl_entities);
+              dvl_entity = resolveEntity(m_args.dvl_entities);
             }
             catch (...)
             {
@@ -366,7 +377,7 @@ namespace
 
             try
             {
-              rpm_entity = resolveEntity(rpm_entities);
+              rpm_entity = resolveEntity(m_args.rpm_entities);
             }
             catch (...)
             {
@@ -539,9 +550,9 @@ namespace
           {
             // Pass euler angles to row matrix
             Math::Matrix ea(3,1);
-            ea(0) = Math::Angles::normalizeRadian(j_angles[0]);//_est[0]);
-            ea(1) = Math::Angles::normalizeRadian(j_angles[1]);//_est[1]);
-            ea(2) = Math::Angles::normalizeRadian(j_angles[2]);//_est[2]);
+            ea(0) = Math::Angles::normalizeRadian(j_angles[0]);
+            ea(1) = Math::Angles::normalizeRadian(j_angles[1]);
+            ea(2) = Math::Angles::normalizeRadian(j_angles[2]);
 
             J = ea.toDCMSMO();
 
@@ -562,14 +573,9 @@ namespace
 
            if ((flag_dvl_active == 0 || flag_dvl_active == -1) && (flag_rpm_active == 1))
            {
-           v_tmp(0) = rpms * 1.2e-3;
-           v_tmp(1) = 0;//v_rpm;
+           v_tmp(0) = rpms * m_args.rpm_multiplicative_factor;
+           v_tmp(1) = 0;
            }
-
-          /*  if (v_tmp(0) > 1.9)
-              v_tmp(0) = 1.9;
-            if (v_tmp(0) < 0)
-              v_tmp(0) = 0;*/
 
             return v_tmp;
           }
