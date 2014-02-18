@@ -694,6 +694,7 @@ namespace
               nu_error(5,0) = nu_error(5,0)-360*3.14/180;
             /*************************AUV Model Calculation*************************/
 
+            double v_tau[6] = {vel(0, 0), vel(1, 0), vel(2, 0), vel(3, 0), vel(4, 0), vel(5, 0)};
             double v_estimado[6] = {v_est(0, 0), v_est(1, 0), v_est(2, 0), v_est(3, 0), v_est(4, 0), v_est(5, 0)};
             double pos_estimado[6] = {nu(0, 0), nu(1, 0), nu(2, 0), nu(3, 0), nu(4, 0), nu(5, 0)};
 
@@ -745,7 +746,7 @@ namespace
             G = ComputeG1(W,B,zG,pos_estimado);
 
             Math::Matrix tau1(6,1);
-            tau = ComputeTau1(thruster,velocities,servo_pos);
+            tau = ComputeTau1(thruster,v_tau,servo_pos);
 
             // Dynamic of AUV in Eart-fixed Frame
             Math:: Matrix Mn(6,6); 
