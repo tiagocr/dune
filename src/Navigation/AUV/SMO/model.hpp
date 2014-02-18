@@ -122,7 +122,7 @@ Matrix ComputeTau1(double thruster,double velocities[],double servo_pos[]);
 		
 		double phi = Angles::normalizeRadian(pos_estimado[3]);
      		double theta = Angles::normalizeRadian(pos_estimado[4]);
-     		double psi = Angles::normalizeRadian(pos_estimado[5]);
+     		//double psi = Angles::normalizeRadian(pos_estimado[5]);
 
 		 // Pass euler angles to row matrix
 	       	 Matrix G(6,1);

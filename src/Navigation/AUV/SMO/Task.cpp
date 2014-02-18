@@ -65,8 +65,8 @@ namespace
         static const float Mdqdt = 0;//-0.7637;
         static const float Ndrdt = 0;//-0.7637;
 
-        static const int W=176;
-        static const int B=177;
+        static const int W = 176;
+        static const int B = 177;
 
         struct Arguments
         {
@@ -86,6 +86,7 @@ namespace
           double z;
           double range;
           double bearing;
+          float rpms;
           int flag_initial_point;
           int flag_initial_orientation;
           double gps_fix[4];
@@ -106,16 +107,25 @@ namespace
           double est_unc;
           double j_delta;
           int flag_valid_pos;
+	  double dv_dt; 
+          double delta_v;
+          double teste;
           // Entity ID
           int imu_entity;
           int ahrs_entity;
+          int dvl_entity;
+          int rpm_entity;
           int flag_imu_active;
-          int flag_ahrs_active;
+          int flag_ahrs_active;    
+          int flag_rpm_active;
+          int flag_dvl_active;
           int error_counter;
           // Resolve Entity string
           //std::vector<std::string> servo_entities;
           std::string imu_entities;
           std::string ahrs_entities;
+          std::string dvl_entities;
+          std::string rpm_entities;
           // Sliding Mode Observer Matrices
           Math::Matrix nu_dot;
           Math::Matrix nu_dot_ant;
@@ -146,6 +156,7 @@ namespace
           DUNE::Time::Delta est_delta;
           DUNE::Time::Delta est_delta1;
           DUNE::Time::Delta est_uncertainty;
+          DUNE::Time::Delta dv_delta;
           Arguments m_args;
           Derivative<double> deriv;
 
@@ -163,6 +174,14 @@ namespace
             param("Entity Label AHRS", ahrs_entities)
             .defaultValue("AHRS")
             .description("Label of the AHRS message");
+
+            param("Entity Label DVL", dvl_entities)
+            .defaultValue("DVL")
+            .description("Label of the DVL message");
+
+            param("Entity Label MOTOR", rpm_entities)
+            .defaultValue("MOTOR")
+            .description("Label of the RPM message");
 
             param("k1 gain one", m_args.k1[0])
             .defaultValue("0.7")
@@ -260,19 +279,25 @@ namespace
             .defaultValue("0.2")
             .description("Luenberger term");
 
-            flag_init_nu_est=0;
-            x=0;
-            y=0;
-            z=0;
-            range=0;
-            bearing=0;
-            flag_initial_point=0;
-            flag_initial_orientation=0;
+            flag_init_nu_est = 0;
+            x = 0;
+            y = 0;
+            z = 0;
+            range = 0;
+            bearing = 0;
+            rpms = 0;
+            flag_initial_point = 0;
+            flag_initial_orientation = 0;
             std::memset(&velocities_ant, 0, sizeof(velocities_ant));
-            flag_valid_pos=0;
-            flag_imu_active=0;
-            flag_ahrs_active=0;
-            error_counter=0;
+            flag_valid_pos = 0;
+            flag_imu_active = 0;
+            flag_ahrs_active = 0;
+            flag_rpm_active = 0;
+            flag_dvl_active = 0;
+            error_counter = 0;
+	    dv_dt = 0; 
+            delta_v = 0;
+            teste = 0;
             nu_dot.resizeAndFill(6,1,0.0);
             nu_dot_ant.resizeAndFill(6,1,0.0);
             nu_dot_est.resizeAndFill(6,1,0.0);
@@ -303,6 +328,7 @@ namespace
             bind<IMC::SetThrusterActuation>(this);
             bind<IMC::GpsFix>(this);
             bind<IMC::EntityState>(this);
+            bind<IMC::Rpm>(this);
           }
 
           void
@@ -315,6 +341,7 @@ namespace
             catch (...)
             {
               imu_entity = -1;
+              flag_imu_active = -1;
             }
 
             try
@@ -324,6 +351,27 @@ namespace
             catch (...)
             {
               ahrs_entity = -1;
+              flag_ahrs_active = -1;
+            }
+
+            try
+            {
+              dvl_entity = resolveEntity(dvl_entities);
+            }
+            catch (...)
+            {
+              dvl_entity = -1;
+              flag_dvl_active = -1;
+            }
+
+            try
+            {
+              rpm_entity = resolveEntity(rpm_entities);
+            }
+            catch (...)
+            {
+              rpm_entity = -1;
+              flag_rpm_active = -1;
             }
           }
 
@@ -444,24 +492,46 @@ namespace
           }
 
           void
-          consume(const IMC::EntityState* msg)
+          consume(const IMC::Rpm* msg)
           {
-            if (msg->getSourceEntity() == imu_entity)
-            {
-              if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                flag_imu_active = 1 ;
-              else
-                flag_imu_active = 0 ;
-            }
-
-            if (msg->getSourceEntity() == ahrs_entity)
-            {
-              if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                flag_ahrs_active = 1 ;
-              else
-                flag_ahrs_active = 0 ;
-            }
+            rpms = msg->value;
           }
+
+          void
+          consume(const IMC::EntityState* msg)
+           {
+             if (msg->getSourceEntity() == imu_entity)
+             {
+               if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                 flag_imu_active = 1 ;
+               else
+                 flag_imu_active = 0 ;
+             }
+ 
+             if (msg->getSourceEntity() == ahrs_entity)
+             {
+               if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                 flag_ahrs_active = 1 ;
+               else
+                 flag_ahrs_active = 0 ;
+             }
+
+             if (msg->getSourceEntity() == dvl_entity)
+             {
+               if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                 flag_dvl_active = 1 ;
+               else
+                 flag_dvl_active = 0 ;
+             }
+
+             if (msg->getSourceEntity() == rpm_entity)
+             {
+               if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                 flag_rpm_active = 1 ;
+               else
+                 flag_rpm_active = 0 ;
+             }
+           }
 
           /*********************Compute Rotation Matrix, is Derivative and Velocity measure Matrix*********************/
           Matrix
@@ -487,13 +557,19 @@ namespace
             v_tmp(1) = velocities[1];
             v_tmp(2) = velocities[2];
             v_tmp(3) = velocities[3];//-m_args.bias_r;
-            v_tmp(4) = velocities[4]-er[0];//-m_args.bias_p;
-            v_tmp(5) = velocities[5]-er[1];//-m_args.bias_y;
+            v_tmp(4) = velocities[4] - er[0];//-m_args.bias_p;
+            v_tmp(5) = velocities[5] - er[1];//-m_args.bias_y;
 
-            if (v_tmp(0) > 1.9)
+           if ((flag_dvl_active == 0 || flag_dvl_active == -1) && (flag_rpm_active == 1))
+           {
+           v_tmp(0) = rpms * 1.2e-3;
+           v_tmp(1) = 0;//v_rpm;
+           }
+
+          /*  if (v_tmp(0) > 1.9)
               v_tmp(0) = 1.9;
             if (v_tmp(0) < 0)
-              v_tmp(0) = 0;
+              v_tmp(0) = 0;*/
 
             return v_tmp;
           }
@@ -587,6 +663,7 @@ namespace
             nu(3,0) = Math::Angles::normalizeRadian( nu(3,0) );
             nu(4,0) = Math::Angles::normalizeRadian( nu(4,0) );
             nu(5,0) = Math::Angles::normalizeRadian( nu(5,0) );
+
 
             /*********************End Choosing measure to use in estimation and correct velocity estimation based*********************/
 
@@ -703,9 +780,9 @@ namespace
 
             v_est = v_est + dv_dt_est * smo_delta;
 
-            if (v_est(0)>2)
+            if (v_est(0) > 2)
               v_est(0) = 2;
-            if (v_est(0)<-2)
+            if (v_est(0) < -2)
               v_est(0) = -2;
 
             nu_dot_est = -alfa1 * nu_error + J * v_est - K1 * tanghyper;
