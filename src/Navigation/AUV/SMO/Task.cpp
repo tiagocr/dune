@@ -56,7 +56,7 @@ namespace
         static const int Izy = 0;
         static const int Izx = 0;
 
-        static const int m=18;
+        static const int m = 18;
 
         static const int Xdudt = -1;
         static const int Ydvdt = -16;
@@ -75,6 +75,7 @@ namespace
           float k2[6];
           float alfa1[6];
           float alfa2[6];
+
           //Roll estimation parameter on/off
           int roll_estimation_on_off;
 
@@ -82,7 +83,6 @@ namespace
           double rpm_multiplicative_factor;
 
           // Resolve Entity string
-          //std::vector<std::string> servo_entities;
           std::string imu_entities;
           std::string ahrs_entities;
           std::string dvl_entities;
@@ -91,6 +91,8 @@ namespace
 
         struct Task: public DUNE::Tasks::Periodic
         {
+          int task_management; 
+          float x_ant;
           int flag_init_nu_est;
           double x;
           double y;
@@ -118,9 +120,17 @@ namespace
           double est_unc;
           double j_delta;
           int flag_valid_pos;
-	  double dv_dt; 
+          double dv_dt;
           double delta_v;
           double teste;
+          double j_angles[3];
+          float delta_x;
+          float delta_y;
+          double v_tau[6];
+          double v_estimado[6];
+          double pos_estimado[6];
+          double error[6];
+
 
           // Entity ID
           int imu_entity;
@@ -128,7 +138,7 @@ namespace
           int dvl_entity;
           int rpm_entity;
           int flag_imu_active;
-          int flag_ahrs_active;    
+          int flag_ahrs_active;
           int flag_rpm_active;
           int flag_dvl_active;
           int error_counter;
@@ -150,20 +160,22 @@ namespace
           Math::Matrix J;
           Math::Matrix vel;
           Math::Matrix dJ;
+
           // Uncertainty Matrices
           Math::Matrix nu_uncertainty;
           Math::Matrix nu_dot_uncertainty;
           Math::Matrix v_est_uncertainty;
-          //! Use NavigationUnvertainty messages to send tau to test
+
+          //! Send message to Estimated State and Navigation Uncertainty
           IMC::EstimatedState m_est;
           IMC::NavigationUncertainty m_uncertainty;
+
           //! Time window between values.
           DUNE::Time::Delta vel_delta;
           DUNE::Time::Delta dj_delta;
           DUNE::Time::Delta est_delta;
           DUNE::Time::Delta est_delta1;
           DUNE::Time::Delta est_uncertainty;
-          DUNE::Time::Delta dv_delta;
           Arguments m_args;
           Derivative<double> deriv;
 
@@ -191,7 +203,7 @@ namespace
             .description("Label of the DVL message");
 
             param("Entity Label MOTOR", m_args.rpm_entities)
-            .defaultValue("MOTOR")
+            .defaultValue("Motor")
             .description("Label of the RPM message");
 
             param("k1 gain one", m_args.k1[0])
@@ -290,6 +302,8 @@ namespace
             .defaultValue("0.2")
             .description("Luenberger term");
 
+            task_management = 0;
+            x_ant=0;
             flag_init_nu_est = 0;
             x = 0;
             y = 0;
@@ -300,15 +314,22 @@ namespace
             flag_initial_point = 0;
             flag_initial_orientation = 0;
             std::memset(&velocities_ant, 0, sizeof(velocities_ant));
+            std::memset(&j_angles, 0, sizeof(j_angles));
             flag_valid_pos = 0;
             flag_imu_active = 0;
             flag_ahrs_active = 0;
             flag_rpm_active = 0;
             flag_dvl_active = 0;
             error_counter = 0;
-	    dv_dt = 0; 
+            dv_dt = 0;
             delta_v = 0;
             teste = 0;
+            delta_x = 0;
+            delta_y = 0;
+            std::memset(&v_tau, 0, sizeof(v_tau));
+            std::memset(&v_estimado, 0, sizeof(v_estimado));
+            std::memset(&pos_estimado, 0, sizeof(pos_estimado));
+            std::memset(&error, 0, sizeof(error));
             nu_dot.resizeAndFill(6,1,0.0);
             nu_dot_ant.resizeAndFill(6,1,0.0);
             nu_dot_est.resizeAndFill(6,1,0.0);
@@ -325,6 +346,7 @@ namespace
             J.resizeAndFill(6,6,0.0);
             vel.resizeAndFill(6,1,0.0);
             dJ.resizeAndFill(6,6,0.0);
+
             // Uncertainty Matrices
             nu_uncertainty.resizeAndFill(6,1,0.0);
             nu_dot_uncertainty.resizeAndFill(6,1,0.0);
@@ -510,49 +532,49 @@ namespace
 
           void
           consume(const IMC::EntityState* msg)
-           {
-             if (msg->getSourceEntity() == imu_entity)
-             {
-               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                 flag_imu_active = 1 ;
-               else
-                 flag_imu_active = 0 ;
-             }
- 
-             if (msg->getSourceEntity() == ahrs_entity)
-             {
-               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                 flag_ahrs_active = 1 ;
-               else
-                 flag_ahrs_active = 0 ;
-             }
+          {
+            if (msg->getSourceEntity() == imu_entity)
+            {
+              if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                flag_imu_active = 1 ;
+              else
+                flag_imu_active = 0 ;
+            }
 
-             if (msg->getSourceEntity() == dvl_entity)
-             {
-               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                 flag_dvl_active = 1 ;
-               else
-                 flag_dvl_active = 0 ;
-             }
+            if (msg->getSourceEntity() == ahrs_entity)
+            {
+              if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                flag_ahrs_active = 1 ;
+              else
+                flag_ahrs_active = 0 ;
+            }
 
-             if (msg->getSourceEntity() == rpm_entity)
-             {
-               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                 flag_rpm_active = 1 ;
-               else
-                 flag_rpm_active = 0 ;
-             }
-           }
+            if (msg->getSourceEntity() == dvl_entity)
+            {
+              if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                flag_dvl_active = 1 ;
+              else
+                flag_dvl_active = 0 ;
+            }
+
+            if (msg->getSourceEntity() == rpm_entity)
+            {
+              if (msg->state == IMC::EntityState::ESTA_NORMAL)
+                flag_rpm_active = 1 ;
+              else
+                flag_rpm_active = 0 ;
+            }
+          }
 
           /*********************Compute Rotation Matrix, is Derivative and Velocity measure Matrix*********************/
           Matrix
-          ComputeJ(double j_angles[])
+          computeJ(double e_angles[])
           {
             // Pass euler angles to row matrix
             Math::Matrix ea(3,1);
-            ea(0) = Math::Angles::normalizeRadian(j_angles[0]);
-            ea(1) = Math::Angles::normalizeRadian(j_angles[1]);
-            ea(2) = Math::Angles::normalizeRadian(j_angles[2]);
+            ea(0) = Math::Angles::normalizeRadian(e_angles[0]);
+            ea(1) = Math::Angles::normalizeRadian(e_angles[1]);
+            ea(2) = Math::Angles::normalizeRadian(e_angles[2]);
 
             J = ea.toDCMSMO();
 
@@ -560,31 +582,62 @@ namespace
           }
 
           Matrix
-          Computev(void)
+          computev(void)
           {
             // Create Row matrix from measures
             Math::Matrix v_tmp(6,1);
             v_tmp(0) = velocities[0];
             v_tmp(1) = velocities[1];
             v_tmp(2) = velocities[2];
-            v_tmp(3) = velocities[3];//-m_args.bias_r;
-            v_tmp(4) = velocities[4] - er[0];//-m_args.bias_p;
-            v_tmp(5) = velocities[5] - er[1];//-m_args.bias_y;
+            v_tmp(3) = velocities[3];
+            v_tmp(4) = velocities[4] - er[0];
+            v_tmp(5) = velocities[5] - er[1];
 
-           if ((flag_dvl_active == 0 || flag_dvl_active == -1) && (flag_rpm_active == 1))
-           {
-           v_tmp(0) = rpms * m_args.rpm_multiplicative_factor;
-           v_tmp(1) = 0;
-           }
+            if ((flag_dvl_active == 0 || flag_dvl_active == -1) && (flag_rpm_active == 1))
+            {
+              v_tmp(0) = rpms * m_args.rpm_multiplicative_factor;
+              v_tmp(1) = 0;
+            }
 
             return v_tmp;
           }
 
           /*********************END Compute Rotation Matrix, is Derivative and Velocity measure Matrix*********************/
 
+          /***********************Task MANAGEMENT**********************/
+          void
+          state_management(void)
+          {
+            if(flag_initial_point == 0)
+            {
+              setEntityState(IMC::EntityState::ESTA_BOOT, Status::CODE_WAIT_GPS_FIX);
+              task_management = 0;
+            }
+
+            if(flag_initial_point == 1)
+            {
+              setEntityState(IMC::EntityState::ESTA_NORMAL, Status::CODE_ACTIVE);
+              task_management = 1;
+            }
+
+            return;
+          }
+
+          /************************************************************/
+
           void
           task(void)
           {
+
+            /***********************Entity State Management**********************/
+
+            state_management();
+
+            /********************************************************************/
+
+            if(task_management == 1)
+            {
+
             /*******************GPS Signal Acquisition*******************/
             Coordinates::WGS84::getNEBearingAndRange(gps_initial_point[0], gps_initial_point[1], gps_fix[1], gps_fix[2], &bearing, &range);
 
@@ -606,22 +659,29 @@ namespace
             /*********************Position Measure from Velocity*********************/
 
             //Take out earth rotation from angular velocities
-            er[0] = ( ( std::sin( nu(3,0) ) * std::sin( nu(4,0) ) * std::cos( nu(5,0) ) - std::cos( nu(3,0) ) * std::sin( nu(5,0) ) ) * std::cos( gps_fix[1] ) - std::sin( nu(3,0) ) * std::cos( nu(4,0) ) * std::sin( gps_fix[1] ) ) * 7.292115e-5;
+            er[0] = ((std::sin(nu(3,0)) * std::sin(nu(4,0)) * std::cos(nu(5,0)) - std::cos(nu(3,0)) * std::sin(nu(5,0))) * std::cos(gps_fix[1]) - std::sin(nu(3,0)) * std::cos(nu(4,0)) * std::sin(gps_fix[1])) * 7.292115e-5;
 
-            er[1] = ( ( std::sin( nu(3,0) ) * std::sin( nu(5,0) ) + std::cos( nu(3,0) ) * std::sin( nu(4,0) ) * std::cos( nu(5,0) ) ) * std::cos( gps_fix[1] ) - std::cos( nu(3,0) ) * std::cos( nu(4,0) ) * std::sin( gps_fix[1] ) ) * 7.292115e-5;
+            er[1] = ((std::sin(nu(3,0)) * std::sin(nu(5,0)) + std::cos(nu(3,0)) * std::sin(nu(4,0)) * std::cos(nu(5,0))) * std::cos(gps_fix[1]) - std::cos(nu(3,0)) * std::cos(nu(4,0)) * std::sin(gps_fix[1])) * 7.292115e-5;
 
             // Calculate Rotation Matrix
             // Avoid singularaties in Rotation Matrix
-	    if(nu(4,0)>1.56 && nu(4,0)<1.58)
-            nu(4,0) = 1.56;
-	    if(nu(4,0)<-1.56 && nu(4,0)>-1.58)
-            nu(4,0) = -1.56;
-            double j_angles[3] = {nu(3,0),nu(4,0),nu(5,0)};
-            J = ComputeJ(j_angles);
-            vel = Computev();
+            if(nu(4,0)>1.56 && nu(4,0)<1.58)
+              nu(4,0) = 1.56;
+
+            if(nu(4,0)<-1.56 && nu(4,0)>-1.58)
+              nu(4,0) = -1.56;
+
+            //double j_angles[3] = {nu(3,0),nu(4,0),nu(5,0)};
+            std::fill_n (j_angles,1,nu(3,0));
+            std::fill_n (j_angles+1,1,nu(4,0));
+            std::fill_n (j_angles+2,1,nu(5,0));
+
+            J = computeJ(j_angles);
+            vel = computev();
 
             // Calculate nu_dot
             nu_dot = J * vel;
+
 
             // Integrate velocity in Earth-fixed Frame to obtain position
             vel_int_delta = vel_delta.getDelta();
@@ -635,6 +695,15 @@ namespace
             nu(5,0) = nu(5,0) + ( nu_dot_ant(5,0) + nu_dot(5,0) ) / 2 * vel_int_delta;
 
             nu_dot_ant = nu_dot;
+
+            if ((flag_dvl_active == 0 || flag_dvl_active == -1) && (flag_rpm_active == 1))
+            {
+              delta_x = ( nu(0,0) - x_ant );
+              delta_y = std::tan( euler_angles[2]) * delta_x;
+              nu_dot(1,0) = delta_y;
+              nu(1,0) = nu(1,0) + delta_y * 0.2; //0.2 is an empirical value to reduce the impact of error integration, from delta_x and psi.
+            }
+            x_ant = nu(0,0);
             /*******************END Position Measure from Velocity*******************/
 
 
@@ -678,6 +747,8 @@ namespace
             // Calculate error for Sliding Mode Observer
             nu_error = nu_est-nu;
 
+            // Standard error when vehicle is at -180 or 180 degrees
+
             if (nu_error(3,0) <= -3.14)
               nu_error(3,0) = nu_error(3,0)+360*3.14/180;
             if (nu_error(3,0) >= 3.14)
@@ -692,38 +763,62 @@ namespace
               nu_error(5,0) = nu_error(5,0)+360*3.14/180;
             if (nu_error(5,0) >= 3.14)
               nu_error(5,0) = nu_error(5,0)-360*3.14/180;
+
             /*************************AUV Model Calculation*************************/
 
-            double v_tau[6] = {vel(0, 0), vel(1, 0), vel(2, 0), vel(3, 0), vel(4, 0), vel(5, 0)};
-            double v_estimado[6] = {v_est(0, 0), v_est(1, 0), v_est(2, 0), v_est(3, 0), v_est(4, 0), v_est(5, 0)};
-            double pos_estimado[6] = {nu(0, 0), nu(1, 0), nu(2, 0), nu(3, 0), nu(4, 0), nu(5, 0)};
+            std::fill_n (v_tau,1,vel(0,0));
+            std::fill_n (v_tau+1,1,vel(1,0));
+            std::fill_n (v_tau+2,1,vel(2,0));
+            std::fill_n (v_tau+3,1,vel(3,0));
+            std::fill_n (v_tau+4,1,vel(4,0));
+            std::fill_n (v_tau+5,1,vel(5,0));
+
+            std::fill_n (v_estimado,1,v_est(0,0));
+            std::fill_n (v_estimado+1,1,v_est(1,0));
+            std::fill_n (v_estimado+2,1,v_est(2,0));
+            std::fill_n (v_estimado+3,3,v_est(3,0));
+            std::fill_n (v_estimado+4,1,v_est(4,0));
+            std::fill_n (v_estimado+5,1,v_est(5,0));
+
+            std::fill_n (pos_estimado,1,nu(0,0));
+            std::fill_n (pos_estimado+1,1,nu(1,0));
+            std::fill_n (pos_estimado+2,1,nu(2,0));
+            std::fill_n (pos_estimado+3,1,nu(3,0));
+            std::fill_n (pos_estimado+4,1,nu(4,0));
+            std::fill_n (pos_estimado+5,1,nu(5,0));
+
 
             //Compute k1, k2, alfa1, alfa 2 and signum function for Sliding Mode Observer
-            double error[6] = {nu_error(0, 0), nu_error(1, 0), nu_error(2, 0), nu_error(3, 0), nu_error(4, 0), nu_error(5, 0)};
+            std::fill_n (error,1,nu_error(0,0));
+            std::fill_n (error+1,1,nu_error(1,0));
+            std::fill_n (error+2,1,nu_error(2,0));
+            std::fill_n (error+3,1,nu_error(3,0));
+            std::fill_n (error+4,1,nu_error(4,0));
+            std::fill_n (error+5,1,nu_error(5,0));
 
-            Math::Matrix K1(6,6);       
-	    K1 = ComputeK1(m_args.k1);
+            Math::Matrix K1(6,6);
+            K1 = ComputeK1(m_args.k1);
 
-            Math::Matrix K2(6,6);      
+            Math::Matrix K2(6,6);
             K2 = ComputeK2(m_args.k2);
 
-            Math::Matrix alfa1(6,6);    
+            Math::Matrix alfa1(6,6);
             alfa1 = Computealfa1(m_args.alfa1);
 
-            Math::Matrix alfa2(6,6);    
+            Math::Matrix alfa2(6,6);
             alfa2 = Computealfa2(m_args.alfa2);
 
-            Math::Matrix signum(6,1);   
+            Math::Matrix signum(6,1);
             signum = Computesignum(error);
 
-            Math::Matrix tanghyper(6,1);   
+            Math::Matrix tanghyper(6,1);
             tanghyper = Computetanh(error);
 
             j_delta = dj_delta.getDelta();
-            dJ = (J-J_ant)/j_delta;
+            dJ = (J-J_ant) / j_delta;
             J_ant = J;
 
-            // Compute AUV Dynamic
+            // Compute AUV Dynamic i Body-fixed Frame
             Math::Matrix M_RB(6,6);
             M_RB = ComputeM_RB1(m,zG,Ixx,Iyy,Izz);
 
@@ -749,27 +844,26 @@ namespace
             tau = ComputeTau1(thruster,v_tau,servo_pos);
 
             // Dynamic of AUV in Eart-fixed Frame
-            Math:: Matrix Mn(6,6); 
+            Math:: Matrix Mn(6,6);
             Mn = inverse (transpose(J) ) * ( M_RB + M_A )  * inverse(J);
 
-            Math:: Matrix Cn(6,6); 
+            Math:: Matrix Cn(6,6);
             Cn = inverse (transpose(J) ) * ( ( C_RB + C_A ) - ( M_RB +  M_A )  * inverse (J) * dJ ) * inverse (J);
 
-            Math:: Matrix Dn(6,6); 
+            Math:: Matrix Dn(6,6);
             Dn = inverse (transpose(J) ) * D * inverse (J);
 
-            Math:: Matrix Gn(6,6); 
+            Math:: Matrix Gn(6,6);
             Gn = inverse (transpose(J) ) * G;
 
-            Math:: Matrix Ln(6,6); 
+            Math:: Matrix Ln(6,6);
             Ln = inverse (transpose(J) ) * L * inverse (J);
 
-            Math:: Matrix Fn(6,6); 
+            Math:: Matrix Fn(6,6);
             Fn = inverse (transpose(J) ) * tau;
 
             /***********************END AUV Model Calculation***********************/
 
-            // Sliding Mode Observer
             dn_est = J * v_est;
 
             Math:: Matrix Mn_tmp = inverse(Mn);
@@ -805,27 +899,27 @@ namespace
             nu_est(4,0) = Math::Angles::normalizeRadian( nu_est(4,0) );
             nu_est(5,0) = Math::Angles::normalizeRadian( nu_est(5,0) );
 
-            double teste1[12] = {nu_est(0, 0), nu_est(1, 0), nu_est(2, 0), nu_est(3, 0), nu_est(4, 0), nu_est(5, 0), v_est(0,0), v_est(1,0), v_est(2,0), v_est(3,0), v_est(4,0), v_est(5,0)};
-            m_est.x = teste1[0];
-            m_est.y = teste1[1];
-            m_est.z = teste1[2];
-            m_est.phi = teste1[3];
-            m_est.theta = teste1[4];
-            m_est.psi = teste1[5];
-            m_est.u = teste1[6];
-            m_est.v = teste1[7];
-            m_est.w = teste1[8];
-            m_est.p = teste1[9];
-            m_est.q = teste1[10];
-            m_est.r = teste1[11];
+            m_est.x = nu_est(0,0);
+            m_est.y = nu_est(1,0);
+            m_est.z = gps_initial_point[2] + nu_est(2,0);
+            m_est.phi = nu_est(3,0);
+            m_est.theta = nu_est(4,0);
+            m_est.psi = nu_est(5,0);
+            m_est.u = v_est(0,0);
+            m_est.v = v_est(1,0);
+            m_est.w = v_est(2,0);
+            m_est.p = v_est(3,0);
+            m_est.q = v_est(4,0);
+            m_est.r = v_est(5,0);
             m_est.lat = gps_initial_point[0];
             m_est.lon = gps_initial_point[1];
             m_est.height = gps_initial_point[2];
+            m_est.depth = nu_est(2,0);
             dispatch( m_est );
 
             /*******************END Sliding Mode Observer*******************/
 
-            /*Navigation Uncertainty*/
+            /*********************Navigation Uncertainty********************/
             error_counter = error_counter + 1;
 
             v_est_uncertainty(0) = v_est_uncertainty(0) + std::abs( v_est(0)-vel(0) );
@@ -840,26 +934,29 @@ namespace
             est_unc = est_uncertainty.getDelta();
             nu_uncertainty = nu_uncertainty + nu_dot_uncertainty * est_unc;
 
-            nu_uncertainty(2) = std::abs( nu_est(2) - nu(2) );
-            nu_uncertainty(3) = std::abs( nu_est(3) - nu(3) );
-            nu_uncertainty(4) = std::abs( nu_est(4) - nu(4) );
-            nu_uncertainty(5) = std::abs( nu_est(5) - nu(5) );
+            //nu_uncertainty(0) = nu_uncertainty(0) + std::abs( nu_est(0) - nu(0) );
+            //nu_uncertainty(1) = nu_uncertainty(1) + std::abs( nu_est(1) - nu(1) );
+            //nu_uncertainty(2) = std::abs( nu_est(2) - nu(2) );
+            //nu_uncertainty(3) = std::abs( nu_est(3) - nu(3) );
+            //nu_uncertainty(4) = std::abs( nu_est(4) - nu(4) );
+            //nu_uncertainty(5) = std::abs( nu_est(5) - nu(5) );
 
-            double tmp[12] = {nu_uncertainty(0),nu_uncertainty(1),nu_uncertainty(2)/error_counter,nu_uncertainty(3)/error_counter,nu_uncertainty(4)/error_counter,nu_uncertainty(5)/error_counter,v_est_uncertainty(0)/error_counter,v_est_uncertainty(1)/error_counter,v_est_uncertainty(2)/error_counter,v_est_uncertainty(3)/error_counter,v_est_uncertainty(4)/error_counter,v_est_uncertainty(5)/error_counter};
-
-            m_uncertainty.x = std::abs( tmp[0] );
-            m_uncertainty.y = std::abs( tmp[1] );
-            m_uncertainty.z = tmp[2];
-            m_uncertainty.phi = tmp[3];
-            m_uncertainty.theta = tmp[4];
-            m_uncertainty.psi = tmp[5];
-            m_uncertainty.u = tmp[6];
-            m_uncertainty.v = tmp[7];
-            m_uncertainty.w = tmp[8];
-            m_uncertainty.p = tmp[9];
-            m_uncertainty.q = tmp[10];
-            m_uncertainty.r = tmp[11];
+            m_uncertainty.x = std::abs( nu_uncertainty(0) );
+            m_uncertainty.y = std::abs( nu_uncertainty(1) );
+            m_uncertainty.z = std::abs( nu_uncertainty(2) )/error_counter;
+            m_uncertainty.phi = std::abs( nu_uncertainty(3) )/error_counter;
+            m_uncertainty.theta = std::abs( nu_uncertainty(4) )/error_counter;
+            m_uncertainty.psi = std::abs( nu_uncertainty(5) )/error_counter;
+            m_uncertainty.u = v_est_uncertainty(0)/error_counter;
+            m_uncertainty.v = v_est_uncertainty(1)/error_counter;
+            m_uncertainty.w = v_est_uncertainty(2)/error_counter;
+            m_uncertainty.p = v_est_uncertainty(3)/error_counter;
+            m_uncertainty.q = v_est_uncertainty(4)/error_counter;
+            m_uncertainty.r = v_est_uncertainty(5)/error_counter;
             dispatch( m_uncertainty );
+
+            /*****************END Navigation Uncertainty********************/
+            }
           }
         };
       }
