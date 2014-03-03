@@ -41,6 +41,8 @@ namespace
         using DUNE_NAMESPACES;
 
         //AUV Parameters
+
+        //Centriptal and Inertial Matrix terms
         static const int xg=0;
         static const int yg=0;
         static const float zG = 0.01;
@@ -65,6 +67,31 @@ namespace
         static const float Mdqdt = 0;//-0.7637;
         static const float Ndrdt = 0;//-0.7637;
 
+
+        // Damping Matrix Terms
+        static const float X_u = -2.4;
+        static const float Y_v = -23;
+        static const float Y_r = 11.5;
+        static const float Z_w = -23;
+        static const float Z_q = -11.5;
+        static const float K_p = -0.3;
+        static const float M_q = -9.7;
+        static const float M_w = 3.1;
+        static const float N_r = -9.7;
+        static const float N_v = -3.1;
+
+        static const float X_uabsu = -2.4;
+        static const float Y_vabsv = -80;
+        static const float Y_rabsr = 0.3;
+        static const float Z_wabsw = -80;
+        static const float Z_qabsq = -0.3;
+        static const float K_pabsp = -6e-4;
+        static const float M_qabsq = -9.1;
+        static const float M_wabsw = 1.5;
+        static const float N_rabsr = -9.1;
+        static const float N_vabsv = -1.5;
+
+        // Restoring Forces terms
         static const int W = 176;
         static const int B = 177;
 
@@ -79,6 +106,12 @@ namespace
           //Roll estimation parameter on/off
           int roll_estimation_on_off;
 
+          //Attenuator for lateral estimation with rpm measures only
+          float rpm_lateral_attenuator;
+
+          //Boundary layer ize
+          double boundary_layer;
+
           //RPM Multiplicative Factor
           double rpm_multiplicative_factor;
 
@@ -91,7 +124,7 @@ namespace
 
         struct Task: public DUNE::Tasks::Periodic
         {
-          int task_management; 
+          int task_management;
           float x_ant;
           int flag_init_nu_est;
           double x;
@@ -182,6 +215,14 @@ namespace
           Task(const std::string& name, Tasks::Context& ctx):
             Periodic(name, ctx)
           {
+            param("RPM Lateral Attenuator", m_args.rpm_lateral_attenuator)
+            .defaultValue("0.2")
+            .description("Lateral attenuator with RPM measures only");
+
+            param("Boundary Layer", m_args.boundary_layer)
+            .defaultValue("0.05")
+            .description("Boundary Layer Size");
+
             param("RPM factor", m_args.rpm_multiplicative_factor)
             .defaultValue("1.2e-3")
             .description("RPM Multiplicative Factor");
@@ -701,7 +742,7 @@ namespace
               delta_x = ( nu(0,0) - x_ant );
               delta_y = std::tan( euler_angles[2]) * delta_x;
               nu_dot(1,0) = delta_y;
-              nu(1,0) = nu(1,0) + delta_y * 0.2; //0.2 is an empirical value to reduce the impact of error integration, from delta_x and psi.
+              nu(1,0) = nu(1,0) + delta_y * m_args.rpm_lateral_attenuator; //empirical value to reduce the impact of error integration, from delta_x and psi.
             }
             x_ant = nu(0,0);
             /*******************END Position Measure from Velocity*******************/
@@ -797,22 +838,22 @@ namespace
             std::fill_n (error+5,1,nu_error(5,0));
 
             Math::Matrix K1(6,6);
-            K1 = ComputeK1(m_args.k1);
+            K1 = computeK1(m_args.k1);
 
             Math::Matrix K2(6,6);
-            K2 = ComputeK2(m_args.k2);
+            K2 = computeK2(m_args.k2);
 
             Math::Matrix alfa1(6,6);
-            alfa1 = Computealfa1(m_args.alfa1);
+            alfa1 = computealfa1(m_args.alfa1);
 
             Math::Matrix alfa2(6,6);
-            alfa2 = Computealfa2(m_args.alfa2);
+            alfa2 = computealfa2(m_args.alfa2);
 
             Math::Matrix signum(6,1);
-            signum = Computesignum(error);
+            signum = computesignum(error);
 
             Math::Matrix tanghyper(6,1);
-            tanghyper = Computetanh(error);
+            tanghyper = computetanh(error,m_args.boundary_layer);
 
             j_delta = dj_delta.getDelta();
             dJ = (J-J_ant) / j_delta;
@@ -820,28 +861,28 @@ namespace
 
             // Compute AUV Dynamic i Body-fixed Frame
             Math::Matrix M_RB(6,6);
-            M_RB = ComputeM_RB1(m,zG,Ixx,Iyy,Izz);
+            M_RB = computeM_RB1(m,zG,Ixx,Iyy,Izz);
 
             Math::Matrix M_A(6,6);
-            M_A = ComputeM_A1(Xdudt,Ydvdt,Zdwdt,Kdpdt,Mdqdt,Ndrdt);
+            M_A = computeM_A1(Xdudt,Ydvdt,Zdwdt,Kdpdt,Mdqdt,Ndrdt);
 
             Math::Matrix C_RB(6,6);
-            C_RB = ComputeC_RB1(m,xg,yg,zG,Ixx,Iyy,Izz,Ixz,Ixy,Iyz,v_estimado);
+            C_RB = computeC_RB1(m,xg,yg,zG,Ixx,Iyy,Izz,Ixz,Ixy,Iyz,v_estimado);
 
             Math::Matrix C_A(6,6);
-            C_A = ComputeC_A1(Xdudt,Ydvdt,Zdwdt,Kdpdt,Mdqdt,Ndrdt,v_estimado);
+            C_A = computeC_A1(Xdudt,Ydvdt,Zdwdt,Kdpdt,Mdqdt,Ndrdt,v_estimado);
 
             Math::Matrix D(6,6);
-            D = ComputeD1(v_estimado);
+            D = computeD1(v_estimado, X_u, Y_v, Y_r, Z_w, Z_q, K_p, M_q, M_w, N_r, N_v, X_uabsu, Y_vabsv, Y_rabsr, Z_wabsw, Z_qabsq, K_pabsp, M_qabsq, M_wabsw, N_rabsr, N_vabsv);
 
             Math::Matrix L(6,6);
-            L = ComputeL1(v_estimado);
+            L = computeL1(v_estimado);
 
             Math::Matrix G(6,6);
-            G = ComputeG1(W,B,zG,pos_estimado);
+            G = computeG1(W,B,zG,pos_estimado);
 
             Math::Matrix tau1(6,1);
-            tau = ComputeTau1(thruster,v_tau,servo_pos);
+            tau = computeTau1(thruster,v_tau,servo_pos);
 
             // Dynamic of AUV in Eart-fixed Frame
             Math:: Matrix Mn(6,6);

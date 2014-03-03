@@ -30,45 +30,52 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-Matrix ComputeM_RB1(float m,float zG,float Ixx,float Iyy,float Izz);
+Matrix computeM_RB1(float m, float zG, float Ixx, float Iyy, float Izz);
 
-Matrix ComputeM_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Ndrdt);
+Matrix computeM_A1(float Xdudt, float Ydvdt, float Zdwdt, float Kdpdt, float Mdqdt, float Ndrdt);
 
-Matrix ComputeC_RB1(float m,float xg,float yg,float Ixx,float Iyy,float Izz,float Ixz,float Ixy,float Iyz,double v_estimado[]);
+Matrix computeC_RB1(float m, float xg, float yg, float Ixx, float Iyy, float Izz, float Ixz, float Ixy, float Iyz, double v_estimado[]);
 
-Matrix ComputeC_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Ndrdt,double v_estimado[]);
+Matrix computeC_A1(float Xdudt, float Ydvdt, float Zdwdt, float Kdpdt, float Mdqdt, float Ndrdt, double v_estimado[]);
 
-Matrix ComputeD1(double v_estimado[]);
+Matrix computeD1(double v_estimado[], float X_u, float Y_v, float Y_r, float Z_w, float Z_q, float K_p, float M_q, float M_w, float N_r, float N_v, float X_uabsu, float Y_vabsv, float Y_rabsr, float Z_wabsw, float Z_qabsq, float K_pabsp, float M_qabsq, float M_wabsw, float N_rabsr, float N_vabsv);
 
-Matrix ComputeL1(double v_estimado[]);
+Matrix computeL1(double v_estimado[]);
 
-Matrix ComputeG1(float W,float B,float zG,double pos_estimado[]);
+Matrix computeG1(float W, float B, float zG, double pos_estimado[]);
 
-Matrix ComputeTau1(double thruster,double velocities[],double servo_pos[]);
+Matrix computeTau1(double thruster,double velocities[],double servo_pos[]);
 
 #endif
 
 /****************************************AUV MODEL MATRICES****************************************/
 
-Matrix 
-ComputeM_RB1(float m,float zG,float Ixx,float Iyy,float Izz)
+Matrix
+computeM_RB1(float m,float zG,float Ixx,float Iyy,float Izz)
 {
   //Inertia Matrix
-  double MRB_vector[36]={m,0,0,0,m*zG,0,0,m,0,-m*zG,0,0,0,0,m,0,0,0, 0,-m*zG,0,Ixx,0,0,m*zG,0,0,0,Iyy,0,0,0,0,0,0,Izz};
+  double MRB_vector[36]={m,    0,     0, 0,     m*zG, 0,
+                         0,    m,     0, -m*zG, 0,    0,
+                         0,    0,     m, 0,     0,    0,
+                         0,    -m*zG, 0, Ixx,   0,    0,
+                         m*zG, 0,     0, 0,     Iyy,  0,
+                         0,    0,     0, 0,     0,    Izz};
+
   return ( Matrix(MRB_vector, 6, 6) );
 }
 
 
-Matrix 
-ComputeM_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Ndrdt)
+Matrix
+computeM_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Ndrdt)
 {
   //Inertia Matrix
-  double MA_vector[6]={-Xdudt,-Ydvdt,-Zdwdt,-Kdpdt,-Mdqdt,-Ndrdt};
-  return ( Matrix(MA_vector, 6) ); 
+  double MA_vector[6]={-Xdudt, -Ydvdt, -Zdwdt, -Kdpdt, -Mdqdt, -Ndrdt};
+
+  return ( Matrix(MA_vector, 6) );
 }
 
 Matrix
-ComputeC_RB1(float m,float xg,float yg,float zG,float Ixx,float Iyy,float Izz,float Ixz,float Ixy,float Iyz,double v_estimado[])
+computeC_RB1(float m,float xg,float yg,float zG,float Ixx,float Iyy,float Izz,float Ixz,float Ixy,float Iyz,double v_estimado[])
 {
   // Coriolis Matrix
 
@@ -79,14 +86,19 @@ ComputeC_RB1(float m,float xg,float yg,float zG,float Ixx,float Iyy,float Izz,fl
   double q = v_estimado[4];
   double r = v_estimado[5];
 
-  double CRB_vector[36]={0,0,0,m*(yg*q+zG*r),-m*(xg*q-w),-m*(xg*r+v),0,0,0,-m*(yg*p+w),m*(zG*r+xg*p),-m*(yg*r-u),0,0,0,-m*(zG*p-v),-m*(zG*q+u),m*(xg*p+yg*q),-m*(yg*q+zG*r),m*(yg*p+w),m*(zG*p-v),0,Iyz*q-Ixz*p+Izz*r,Iyz*r+Ixy*p-Iyy*q,m*(xg*q-w),-m*(zG*r+xg*p),m*(zG*q+u),Iyz*q+Ixz*p-Izz*r,0,-Ixz*r-Ixy*q+Ixx*p,m*(xg*r+v),m*(yg*r-u),-m*(xg*p+yg*q),-Iyz*r-Ixy*p+Iyy*q,Ixz*r+Ixy*q-Ixx*p,0};
+  double CRB_vector[36]={0,              0,              0,              m*(yg*q+zG*r),      -m*(xg*q-w),       -m*(xg*r+v),
+                         0,              0,              0,              -m*(yg*p+w),        m*(zG*r+xg*p),     -m*(yg*r-u),
+                         0,              0,              0,              -m*(zG*p-v),        -m*(zG*q+u),       m*(xg*p+yg*q),
+                         -m*(yg*q+zG*r), m*(yg*p+w),     m*(zG*p-v),     0,                  Iyz*q-Ixz*p+Izz*r, Iyz*r+Ixy*p-Iyy*q,
+                         m*(xg*q-w),     -m*(zG*r+xg*p), m*(zG*q+u),     Iyz*q+Ixz*p-Izz*r,  0,                 -Ixz*r-Ixy*q+Ixx*p,
+                         m*(xg*r+v),     m*(yg*r-u),     -m*(xg*p+yg*q), -Iyz*r-Ixy*p+Iyy*q, Ixz*r+Ixy*q-Ixx*p, 0};
 
 
   return (Matrix(CRB_vector, 6, 6) );
 }
 
 Matrix
-ComputeC_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Ndrdt,double v_estimado[])
+computeC_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Ndrdt,double v_estimado[])
 {
   // Coriolis Matrix
 
@@ -97,14 +109,19 @@ ComputeC_A1(float Xdudt,float Ydvdt,float Zdwdt,float Kdpdt,float Mdqdt,float Nd
   double qr = v_estimado[4];
   double rr = v_estimado[5];
 
-  double CA_vector[36]={0,0,0,0,-Zdwdt*wr,Ydvdt*vr,0,0,0,Zdwdt*wr,0,-Xdudt*ur,0,0,0,-Ydvdt*vr,Xdudt*ur,0,0,-Zdwdt*wr,Ydvdt*vr,0,-Ndrdt*rr, Mdqdt*qr,Zdwdt*wr,0,-Xdudt*ur,Ndrdt*rr,0,-Kdpdt*pr,-Ydvdt*vr,Xdudt*ur,0,-Mdqdt*qr,Kdpdt*pr,0};
+  double CA_vector[36]={0,         0,         0,         0,         Zdwdt*wr,  Ydvdt*vr,
+                        0,         0,         0,         Zdwdt*wr,  0,         -Xdudt*ur,
+                        0,         0,         0,         -Ydvdt*vr, Xdudt*ur,  0,
+                        0,         -Zdwdt*wr, Ydvdt*vr,  0,         -Ndrdt*rr, Mdqdt*qr,
+                        Zdwdt*wr,  0,         -Xdudt*ur, Ndrdt*rr,  0,         -Kdpdt*pr,
+                        -Ydvdt*vr, Xdudt*ur,  0,         -Mdqdt*qr, Kdpdt*pr,  0};
 
   return (Matrix(CA_vector, 6, 6) );
 }
 
 
-Matrix 
-ComputeD1(double v_estimado[])
+Matrix
+computeD1(double v_estimado[], float X_u, float Y_v, float Y_r, float Z_w, float Z_q, float K_p, float M_q, float M_w, float N_r, float N_v, float X_uabsu, float Y_vabsv, float Y_rabsr, float Z_wabsw, float Z_qabsq, float K_pabsp, float M_qabsq, float M_wabsw, float N_rabsr, float N_vabsv)
 {
   // Damping Matrix
 
@@ -115,23 +132,38 @@ ComputeD1(double v_estimado[])
   double qr = v_estimado[4];
   double rr = v_estimado[5];
 
-  double D1_vector[36]={2.4,0,0,0,0,0,0,23,0,0,0,-11.5,0,0,23,0,11.5,0,0,0,0,0.3,0,0,0,0,-3.1,0,9.7,0,0,3.1,0,0,0,9.7};
+  double D1_vector[36]={X_u, 0,   0,    0,   0,   0,
+                        0,   Y_v, 0,    0,   0,   Y_r,
+                        0,   0,   Z_w,  0,   Z_q, 0,
+                        0,   0,   0,    K_p, 0,   0,
+                        0,   0,   M_w,  0,   M_q, 0,
+                        0,   N_v, 0,    0,   0,   N_r};
 
-  double D2_vector[36]={2.4*std::abs(ur),0,0,0,0,0,0,80.0*std::abs(vr),0,0,0,-0.3*std::abs(rr),0,0,80.0*std::abs(wr),0,0.3*std::abs(qr),0,0,0,0,6e-4*std::abs(pr),0,0,0,0,-1.5*std::abs(wr),0,9.1*std::abs(qr),0,0,1.5*std::abs(vr),0,0,0,9.1*std::abs(rr)};
+  double D2_vector[36]={X_uabsu *std::abs(ur), 0,                    0,                    0,                    0,                    0,
+                        0,                     Y_vabsv*std::abs(vr), 0,                    0,                    0,                    Y_rabsr*std::abs(rr),
+                        0,                     0,                    Z_wabsw*std::abs(wr), 0,                    Z_qabsq*std::abs(qr), 0,
+                        0,                     0,                    0,                    K_pabsp*std::abs(pr), 0,                    0,
+                        0,                     0,                    M_wabsw*std::abs(wr), 0,                    M_qabsq*std::abs(qr), 0,
+                        0,                     N_vabsv*std::abs(vr), 0,                    0,                    0,                    N_rabsr*std::abs(rr)};
 
 
-  return (Matrix(D1_vector, 6, 6) + Matrix(D2_vector, 6, 6) );
+  return (-Matrix(D1_vector, 6, 6) - Matrix(D2_vector, 6, 6) );
 }
 
 
 Matrix
-ComputeL1(double v_estimado[])
+computeL1(double v_estimado[])
 {
   // Lift Matrix
 
   double ur = v_estimado[0];
 
-  double L_vector[36]={0,0,0,0,0,0,0,30*ur,0,0,0,-7.7*ur,0,0,30*ur,0,7.7*ur,0,0,0,0,0,0,0,0,0,9.9*ur,0,3.1*ur,0,0,-9.9*ur,0,0,0,3.1*ur};
+  double L_vector[36]={0, 0,       0,      0, 0,       0,
+                       0, 30*ur,   0,      0, 0,      -7.7*ur,
+                       0, 0,       30*ur,  0, 7.7*ur, 0,
+                       0, 0,       0,      0, 0,      0,
+                       0, 0,       9.9*ur, 0, 3.1*ur, 0,
+                       0, -9.9*ur, 0,      0, 0,      3.1*ur};
 
   return (Matrix(L_vector, 6, 6) );
 
@@ -139,7 +171,7 @@ ComputeL1(double v_estimado[])
 
 
 Matrix
-ComputeG1(float W,float B,float zG,double pos_estimado[])
+computeG1(float W,float B,float zG,double pos_estimado[])
 {
   // Restoring forces Matrix
 
@@ -162,7 +194,7 @@ ComputeG1(float W,float B,float zG,double pos_estimado[])
 
 
 Matrix
-ComputeTau1(double thruster,double velocities[],double servo_pos[])
+computeTau1(double thruster,double velocities[],double servo_pos[])
 {
   Matrix tau_tmp(6, 1, 0.0);
   Matrix deflections(3, 1, 0.0);
@@ -188,5 +220,3 @@ ComputeTau1(double thruster,double velocities[],double servo_pos[])
 }
 
 /**************************************************************************************************/
-
-

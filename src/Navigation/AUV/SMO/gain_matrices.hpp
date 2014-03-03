@@ -30,23 +30,23 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-Matrix ComputeK1(float k1[])
+Matrix computeK1(float k1[])
 
-Matrix ComputeK2(float k2[])
+Matrix computeK2(float k2[])
 
-Matrix Computealfa1(float alfa_1[])
+Matrix computealfa1(float alfa_1[])
 
-Matrix Computealfa2(float alfa_2[])
+Matrix computealfa2(float alfa_2[])
 
-Matrix Computesignum(double error[])
+Matrix computesignum(double error[])
 
-Matrix Computetanh(double error[])
+Matrix computetanh(double error[], double boundary_layer)
 
 #endif
 
 
 Matrix
-ComputeK1(float k1[])
+computeK1(float k1[])
 {
   Matrix K1 = Matrix(6, 6, 0.0);
   K1(0, 0) = k1[0];//0.7;
@@ -61,7 +61,7 @@ ComputeK1(float k1[])
 
 
 Matrix
-ComputeK2(float k2[])
+computeK2(float k2[])
 {
   Matrix K2 = Matrix(6, 6, 0.0);
   K2(0, 0) = k2[0];//1;
@@ -75,7 +75,7 @@ ComputeK2(float k2[])
 }
 
 Matrix
-Computealfa1(float alfa_1[])
+computealfa1(float alfa_1[])
 {
   Matrix alfa1 = Matrix(6, 6, 0.0);
   alfa1(0, 0) = alfa_1[0];//0.7;
@@ -89,7 +89,7 @@ Computealfa1(float alfa_1[])
 }
 
 Matrix
-Computealfa2(float alfa_2[])
+computealfa2(float alfa_2[])
 {
   Matrix alfa2 = Matrix(6, 6, 0.0);
   alfa2(0, 0) = alfa_2[0];//1;
@@ -103,7 +103,7 @@ Computealfa2(float alfa_2[])
 }
 
 Matrix
-Computesignum(double error[])
+computesignum(double error[])
 {
   Matrix signum = Matrix(6, 1, 0.0);
   int i=0;
@@ -124,15 +124,14 @@ Computesignum(double error[])
 }
 
 Matrix
-Computetanh(double error[])
+computetanh(double error[], double boundary_layer)
 {
   Matrix tgh=Matrix(6,1,0.0);
   int i=0;
-  double boundarylayer=0.05;
 
   for ( i = 0; i <= 5; i++)
   {
-    tgh(i, 0) = tanh(error[i]/boundarylayer);
+    tgh(i, 0) = tanh(error[i]/boundary_layer);
   }
 
   return tgh;
