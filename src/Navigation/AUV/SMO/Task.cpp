@@ -482,10 +482,10 @@ namespace
               }
 
               if (gps_accuracy[0] >= gps_treshold)
-                flag_valid_pos = 0;
+              flag_valid_pos = 0;
             }
 
-            if (!(msg->validity & IMC::GpsFix::GFV_VALID_POS)/* || (gps_accuracy[0]>=gps_treshold)*/)
+            if (!(msg->validity & IMC::GpsFix::GFV_VALID_POS)/* || gps_accuracy[0] => gps_treshold*/)
               flag_valid_pos = 0;
           }
 
@@ -577,33 +577,33 @@ namespace
             if (msg->getSourceEntity() == imu_entity)
             {
               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                flag_imu_active = 1 ;
+                flag_imu_active = 1;
               else
-                flag_imu_active = 0 ;
+                flag_imu_active = 0;
             }
 
             if (msg->getSourceEntity() == ahrs_entity)
             {
               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                flag_ahrs_active = 1 ;
+                flag_ahrs_active = 1;
               else
-                flag_ahrs_active = 0 ;
+                flag_ahrs_active = 0;
             }
 
             if (msg->getSourceEntity() == dvl_entity)
             {
               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                flag_dvl_active = 1 ;
+                flag_dvl_active = 1;
               else
-                flag_dvl_active = 0 ;
+                flag_dvl_active = 0;
             }
 
             if (msg->getSourceEntity() == rpm_entity)
             {
               if (msg->state == IMC::EntityState::ESTA_NORMAL)
-                flag_rpm_active = 1 ;
+                flag_rpm_active = 1;
               else
-                flag_rpm_active = 0 ;
+                flag_rpm_active = 0;
             }
           }
 
@@ -655,7 +655,7 @@ namespace
               task_management = 0;
             }
 
-            if(flag_initial_point == 1)
+            if(flag_initial_point == 1 || flag_valid_pos == 1)
             {
               setEntityState(IMC::EntityState::ESTA_NORMAL, Status::CODE_ACTIVE);
               task_management = 1;
